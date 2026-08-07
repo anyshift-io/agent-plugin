@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "anyshift-graph": {
+      "type": "streamable-http",
+      "url": "https://graph.anyshift.io/mcp"
+    }
+  }
+}
+

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Anyshift Graph Context"
+  short_description: "Ground agent decisions in live infrastructure graph evidence"
+  default_prompt: "Use Anyshift graph evidence to answer this infrastructure context question."
