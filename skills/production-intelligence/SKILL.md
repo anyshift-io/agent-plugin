@@ -1,12 +1,12 @@
 ---
-name: graph-context
-description: Ground infrastructure, incident, change, deployment, and architecture decisions in current Anyshift graph evidence. Use when an agent needs to resolve a resource, inspect direct dependencies, estimate transitive blast radius, correlate recent changes, assess operational impact, or run a bounded deterministic Graph API query.
+name: production-intelligence
+description: Ground production, infrastructure, incident, change, deployment, and architecture decisions in current Anyshift graph evidence. Use when an agent needs to resolve a production resource, inspect direct dependencies, estimate transitive blast radius, correlate recent changes, assess operational impact, or run a bounded deterministic Graph API query.
 ---
 
-# Anyshift Graph Context
+# Anyshift Production Intelligence
 
-Use Anyshift as an evidence source inside the user's current task. Do not start an autonomous
-incident workflow or substitute graph evidence for the user's decision.
+Use Anyshift as a production evidence source inside the user's current task. Do not start an
+autonomous incident workflow or substitute graph evidence for the user's decision.
 
 ## Evidence workflow
 
@@ -38,4 +38,3 @@ incident workflow or substitute graph evidence for the user's decision.
 
 Read [references/query-patterns.md](references/query-patterns.md) before using `query_graph` or when
 deciding between dependency, blast-radius, change, and impact tools.
-

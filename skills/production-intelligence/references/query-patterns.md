@@ -1,4 +1,4 @@
-# Graph evidence patterns
+# Production evidence patterns
 
 ## Choose a dedicated tool first
 
@@ -45,4 +45,3 @@ SELECT count(*) FROM resources WHERE type = service
 
 If a query is rejected, revise it using the public catalog reported by the tool error. Do not try
 to evade parser limits.
-

@@ -1,7 +1,7 @@
-# Anyshift Graph Context
+# Anyshift Production Intelligence
 
 A portable [Agent Plugins 1.0.0](https://agent-plugins.org/specification) package that gives
-compatible agent clients fast, deterministic, read-only infrastructure context from Anyshift.
+compatible agent clients fast, deterministic, read-only production evidence from Anyshift.
 
 The package combines one Agent Skill with a Streamable HTTP MCP configuration. It embeds no token,
 authorization header, project identifier, or database name. Compatible clients discover OAuth,
@@ -22,8 +22,8 @@ freshness, and client compatibility checks.
 - use the constrained Graph query language for deterministic capabilities without a dedicated
   tool.
 
-This plugin supplies graph evidence to an agent already doing a task. It is not an autonomous SRE
-agent and does not contain an incident-response loop.
+This plugin supplies production graph evidence to an agent already doing a task. It is not an
+autonomous SRE agent and does not contain an incident-response loop.
 
 ## Validate
 
@@ -41,4 +41,3 @@ untrusted-data boundary.
 No compatible-client claim has been made yet. Before the first release, record the client and
 version, installation path, OAuth discovery, initialization, `tools/list`, one tool call, uninstall,
 and any deviation for each supported client.
-

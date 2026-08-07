@@ -1,15 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "anyshift-graph-context",
+  "name": "anyshift-production-intelligence",
   "version": "0.1.0",
-  "description": "Ground agent decisions in deterministic Anyshift infrastructure graph evidence.",
+  "description": "Ground agent decisions in deterministic Anyshift production evidence.",
   "author": {
     "name": "Anyshift",
     "url": "https://anyshift.io"
   },
   "homepage": "https://anyshift.io",
-  "repository": "https://github.com/anyshift-io/anyshift-graph-context",
+  "repository": "https://github.com/anyshift-io/anyshift-production-intelligence",
   "license": "MIT",
-  "keywords": ["infrastructure", "graph", "mcp", "incidents", "changes"]
+  "keywords": ["production", "infrastructure", "graph", "mcp", "incidents", "changes"]
 }
-
