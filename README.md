@@ -10,7 +10,8 @@ collect consent for one Anyshift project, and store credentials themselves.
 
 ## Status
 
-Released as [v0.1.0](https://github.com/anyshift-io/anyshift-production-intelligence/releases/tag/v0.1.0).
+Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/anyshift-production-intelligence/releases),
+and each package release remains gated on production verification of its matching Graph API support.
 The portable package validates against Agent Plugins 1.0.0, and the production endpoint has passed
 OAuth discovery, MCP connection, discovery of all six tools, and authenticated read-only calls from
 Codex CLI 0.147.0. See [Compatibility evidence](#compatibility-evidence) for the precise boundary of
@@ -66,6 +67,12 @@ unaffected; no unauthenticated request can read graph data.
 
 Other compatible clients have their own installation UX. Point the client at this Git repository
 or a checked-out copy and verify that it supports the `streamable-http` MCP transport.
+
+## Usage attribution
+
+Compatible Agent Plugin clients send a fixed, non-secret package name and version with Graph MCP requests. Anyshift uses this declaration for aggregate product usage and reliability telemetry in PostHog and request diagnostics in Sentry. It is not used for authentication, authorization, tenant selection, or rate-limit identity, and the package contains no credentials.
+
+Codex CLI 0.147.0 installs the skill but requires a separate `codex mcp add` command. That separately configured connection may not forward the package headers, so Anyshift can identify the Codex MCP and OAuth clients without claiming exact plugin attribution for those requests.
 
 ## Resource identity
 
