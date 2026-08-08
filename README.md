@@ -10,7 +10,8 @@ collect consent for one Anyshift project, and store credentials themselves.
 
 ## Status
 
-Released as [v0.1.0](https://github.com/anyshift-io/anyshift-production-intelligence/releases/tag/v0.1.0).
+Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/anyshift-production-intelligence/releases),
+and each package release remains gated on production verification of its matching Graph API support.
 The portable package validates against Agent Plugins 1.0.0, and the production endpoint has passed
 OAuth discovery, MCP connection, discovery of all six tools, and authenticated read-only calls from
 Codex CLI 0.147.0. See [Compatibility evidence](#compatibility-evidence) for the precise boundary of
