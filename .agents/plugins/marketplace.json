@@ -1,0 +1,20 @@
+{
+  "name": "anyshift",
+  "interface": {
+    "displayName": "Anyshift"
+  },
+  "plugins": [
+    {
+      "name": "anyshift-production-intelligence",
+      "source": {
+        "source": "url",
+        "url": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

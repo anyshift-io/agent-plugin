@@ -8,6 +8,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requiredFiles = [
   "plugin.json",
   "mcp.json",
+  ".codex-plugin/plugin.json",
+  ".agents/plugins/marketplace.json",
   "skills/production-intelligence/SKILL.md",
   "skills/production-intelligence/references/query-patterns.md",
   "README.md",
@@ -46,19 +48,36 @@ await rejectSymlinks();
 
 const plugin = await json("plugin.json");
 const mcp = await json("mcp.json");
+const codexPlugin = await json(".codex-plugin/plugin.json");
+const marketplace = await json(".agents/plugins/marketplace.json");
 assert.equal(plugin.$schema.split("/").at(-2), mcp.$schema.split("/").at(-2), "schema versions differ");
 validateWithSchema(plugin, await schema(plugin.$schema));
 validateWithSchema(mcp, await schema(mcp.$schema));
 assert.equal(plugin.name, "anyshift-production-intelligence");
 assert.equal(plugin.repository, "https://github.com/anyshift-io/anyshift-production-intelligence");
+assert.equal(codexPlugin.name, plugin.name, "portable and Codex plugin names differ");
+assert.equal(codexPlugin.version, plugin.version, "portable and Codex plugin versions differ");
+assert.equal(codexPlugin.repository, plugin.repository, "portable and Codex repositories differ");
+assert.equal(codexPlugin.skills, "./skills/");
+assert.equal("mcpServers" in codexPlugin, false, "Codex metadata must not duplicate portable mcp.json");
 
-const server = mcp.mcpServers["anyshift-graph"];
+const server = mcp.mcpServers["anyshift-production-intelligence"];
 assert.deepEqual(server, {
   type: "streamable-http",
   url: "https://graph.anyshift.io/mcp",
 });
 assert.equal("headers" in server, false, "portable package must not embed authorization headers");
+assert.equal(marketplace.name, "anyshift");
+const marketplacePlugin = marketplace.plugins.find(({ name }) => name === plugin.name);
+assert.ok(marketplacePlugin, "marketplace entry is missing");
+assert.deepEqual(marketplacePlugin.source, { source: "url", url: "./" });
+assert.deepEqual(marketplacePlugin.policy, {
+  installation: "AVAILABLE",
+  authentication: "ON_INSTALL",
+});
+assert.equal(marketplacePlugin.category, "Developer Tools");
 assert.doesNotMatch(JSON.stringify(mcp), /\$\{[^}]*(?:TOKEN|SECRET|KEY)[^}]*\}/i);
+assert.doesNotMatch(JSON.stringify(mcp), /Authorization\s*:\s*Bearer/i);
 
 const skill = await readFile(join(root, "skills/production-intelligence/SKILL.md"), "utf8");
 assert.match(skill, /^---\nname: production-intelligence\ndescription: .+\n---\n/);
