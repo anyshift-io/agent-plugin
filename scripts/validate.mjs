@@ -65,8 +65,22 @@ const server = mcp.mcpServers["anyshift-production-intelligence"];
 assert.deepEqual(server, {
   type: "streamable-http",
   url: "https://graph.anyshift.io/mcp",
+  headers: {
+    "X-Anyshift-Agent-Plugin": plugin.name,
+    "X-Anyshift-Agent-Plugin-Version": plugin.version,
+  },
 });
-assert.equal("headers" in server, false, "portable package must not embed authorization headers");
+for (const name of Object.keys(server.headers)) {
+  assert.doesNotMatch(name, /^(authorization|cookie|proxy-authorization|x-api-key)$/i);
+}
+assert.equal(plugin.version, "0.1.1", "plugin version must be 0.1.1");
+assert.equal(codexPlugin.version, plugin.version, "Codex plugin version must match portable plugin version");
+const packageManifest = await json("package.json");
+const packageLock = await json("package-lock.json");
+assert.equal(packageManifest.version, plugin.version, "package version must match portable plugin version");
+assert.equal(packageLock.version, plugin.version, "lockfile version must match portable plugin version");
+assert.equal(packageLock.packages[""].version, plugin.version, "root lockfile package version must match portable plugin version");
+assert.equal(server.headers["X-Anyshift-Agent-Plugin-Version"], plugin.version, "MCP attribution version must match portable plugin version");
 assert.equal(marketplace.name, "anyshift");
 const marketplacePlugin = marketplace.plugins.find(({ name }) => name === plugin.name);
 assert.ok(marketplacePlugin, "marketplace entry is missing");

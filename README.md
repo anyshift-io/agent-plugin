@@ -67,6 +67,12 @@ unaffected; no unauthenticated request can read graph data.
 Other compatible clients have their own installation UX. Point the client at this Git repository
 or a checked-out copy and verify that it supports the `streamable-http` MCP transport.
 
+## Usage attribution
+
+Compatible Agent Plugin clients send a fixed, non-secret package name and version with Graph MCP requests. Anyshift uses this declaration for aggregate product usage and reliability telemetry in PostHog and request diagnostics in Sentry. It is not used for authentication, authorization, tenant selection, or rate-limit identity, and the package contains no credentials.
+
+Codex CLI 0.147.0 installs the skill but requires a separate `codex mcp add` command. That separately configured connection may not forward the package headers, so Anyshift can identify the Codex MCP and OAuth clients without claiming exact plugin attribution for those requests.
+
 ## Resource identity
 
 Graph resource names are not globally unique. For example, one deployment name can identify both a
