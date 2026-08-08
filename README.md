@@ -1,7 +1,8 @@
 # Anyshift Production Intelligence
 
 A portable [Agent Plugins 1.0.0](https://agent-plugins.org/specification) package that gives
-compatible agent clients fast, deterministic, read-only production evidence from Anyshift.
+compatible agent clients fast, deterministic, read-only production evidence from Anyshift over
+[MCP 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28).
 
 The package combines one Agent Skill with a Streamable HTTP MCP configuration. It embeds no token,
 authorization header, project identifier, or database name. Compatible clients discover OAuth,
@@ -9,10 +10,22 @@ collect consent for one Anyshift project, and store credentials themselves.
 
 ## Status
 
-Release candidate. The portable package validates against Agent Plugins 1.0.0, and the production
-endpoint has passed OAuth discovery, MCP initialization, tool discovery, and an authenticated
-read-only tool call from Codex CLI 0.147.0. See [Compatibility evidence](#compatibility-evidence)
-for the precise boundary of that claim.
+Released as [v0.1.0](https://github.com/anyshift-io/anyshift-production-intelligence/releases/tag/v0.1.0).
+The portable package validates against Agent Plugins 1.0.0, and the production endpoint has passed
+OAuth discovery, MCP connection, discovery of all six tools, and authenticated read-only calls from
+Codex CLI 0.147.0. See [Compatibility evidence](#compatibility-evidence) for the precise boundary of
+that claim.
+
+## MCP protocol compatibility
+
+The production endpoint at `https://graph.anyshift.io/mcp` supports the stateless Streamable HTTP
+transport defined by MCP `2026-07-28`. Modern requests are self-contained and carry the negotiated
+protocol version, client metadata, method, and tool name on every request. The endpoint also retains
+legacy MCP compatibility through `2025-11-25` for clients that still use initialization negotiation.
+
+Authorization follows the MCP HTTP authorization profile: the server publishes OAuth protected
+resource metadata, challenges unauthenticated requests, and binds the resulting `graph:read` grant
+to one user-selected Anyshift project.
 
 ## Capabilities
 
@@ -53,6 +66,21 @@ unaffected; no unauthenticated request can read graph data.
 
 Other compatible clients have their own installation UX. Point the client at this Git repository
 or a checked-out copy and verify that it supports the `streamable-http` MCP transport.
+
+## Resource identity
+
+Graph resource names are not globally unique. For example, one deployment name can identify both a
+Terraform `STATE_RESOURCE` and the runtime `ECS_SERVICE` it manages. For short, overloaded, or
+same-named resources:
+
+1. call `resolve_resource`;
+2. select the candidate with the intended resource type; and
+3. pass that candidate's stable `id` as the `resource` argument to subsequent tools or constrained
+   queries.
+
+An unqualified name-only query remains deterministic, but it can select a different same-named
+resource kind. Using the resolved stable identifier preserves the selected identity without placing
+project IDs, database names, or credentials in tool arguments.
 
 ## Validate
 
