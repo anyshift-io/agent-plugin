@@ -73,7 +73,30 @@ and completes browser OAuth plus project consent.
 
 #### Verified path: user MCP config
 
-Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` entries):
+Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` entries). Attribution
+headers are optional: OAuth, tool discovery, and authenticated reads work with only the URL.
+
+```json
+{
+  "mcpServers": {
+    "anyshift-production-intelligence": {
+      "url": "https://graph.anyshift.io/mcp"
+    }
+  }
+}
+```
+
+Or register the same remote URL through the Cursor CLI:
+
+```bash
+cursor --add-mcp '{"name":"anyshift-production-intelligence","url":"https://graph.anyshift.io/mcp"}'
+```
+
+Then authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the Anyshift project the
+plugin may read, and start a new agent chat so the six Graph tools are available.
+
+To attribute usage to this package in Anyshift telemetry, add the non-secret headers from the
+portable `mcp.json` (or keep the local Agent Plugin install, which sends them by default):
 
 ```json
 {
@@ -89,15 +112,6 @@ Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` ent
 }
 ```
 
-Or register the same remote URL through the Cursor CLI:
-
-```bash
-cursor --add-mcp '{"name":"anyshift-production-intelligence","url":"https://graph.anyshift.io/mcp","headers":{"X-Anyshift-Agent-Plugin":"anyshift-production-intelligence","X-Anyshift-Agent-Plugin-Version":"0.1.1"}}'
-```
-
-Then authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the Anyshift project the
-plugin may read, and start a new agent chat so the six Graph tools are available.
-
 Bump `X-Anyshift-Agent-Plugin-Version` when you install a newer package release so usage attribution
 stays aligned with the installed version.
 
@@ -111,8 +125,9 @@ git clone https://github.com/anyshift-io/anyshift-production-intelligence.git \
 ```
 
 Reload the Cursor window (`Developer: Reload Window`). Cursor discovers Agent Plugins from
-`~/.cursor/plugins/local`. Complete OAuth for the Graph MCP server if it is not already
-authenticated.
+`~/.cursor/plugins/local`. The package `mcp.json` already includes the attribution headers, so you
+do not need to copy them into `~/.cursor/mcp.json`. Complete OAuth for the Graph MCP server if it
+is not already authenticated.
 
 Do not symlink a checkout from outside `~/.cursor/plugins/local` into that directory. Cursor 3.15.6
 rejects out-of-tree local plugin symlink targets and skips the package.
@@ -130,6 +145,8 @@ rejects out-of-tree local plugin symlink targets and skips the package.
 - Prefer either the user MCP config path or the local Agent Plugin package, not both at once.
   Installing both registers two Cursor MCP clients against the same Graph endpoint and can clear
   stored OAuth credentials when one of them is removed.
+- Attribution headers are optional on the user MCP path. They are not required for OAuth or tool
+  calls; they only declare package usage for Anyshift telemetry.
 - Cursor's verified remote MCP shape uses a `url` field. Cursor connects over Streamable HTTP and
   runs OAuth when the endpoint challenges. The portable package `mcp.json` keeps the Agent Plugins
   `type: "streamable-http"` form for cross-client portability; Cursor accepts that package form when
@@ -147,9 +164,9 @@ Compatible Agent Plugin clients send a fixed, non-secret package name and versio
 
 Codex CLI 0.147.0 installs the skill but requires a separate `codex mcp add` command. That separately configured connection may not forward the package headers, so Anyshift can identify the Codex MCP and OAuth clients without claiming exact plugin attribution for those requests.
 
-Cursor's verified `~/.cursor/mcp.json` path can carry the package attribution headers shown above.
-When those headers are present, Anyshift can attribute Graph MCP usage to this package name and
-version.
+On Cursor, the local Agent Plugin package sends those headers by default via its `mcp.json`. A
+minimal `~/.cursor/mcp.json` entry with only the URL still works for OAuth and tool use; add the
+headers there only when you want package attribution without installing the local plugin.
 
 ## Resource identity
 
