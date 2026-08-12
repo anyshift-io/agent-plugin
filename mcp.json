@@ -6,7 +6,7 @@
       "url": "https://graph.anyshift.io/mcp",
       "headers": {
         "X-Anyshift-Agent-Plugin": "anyshift-production-intelligence",
-        "X-Anyshift-Agent-Plugin-Version": "0.1.1"
+        "X-Anyshift-Agent-Plugin-Version": "0.1.2"
       }
     }
   }

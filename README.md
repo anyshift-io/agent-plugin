@@ -13,9 +13,9 @@ collect consent for one Anyshift project, and store credentials themselves.
 Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/anyshift-production-intelligence/releases),
 and each package release remains gated on production verification of its matching Graph API support.
 The portable package validates against Agent Plugins 1.0.0, and the production endpoint has passed
-OAuth discovery, MCP connection, discovery of all six tools, and authenticated read-only calls from
-Codex CLI 0.147.0 and Cursor 3.15.6. See [Compatibility evidence](#compatibility-evidence) for the
-precise boundary of that claim.
+OAuth discovery, MCP connection, discovery of all seven tools, and authenticated read-only calls
+from Codex CLI 0.147.0. Cursor 3.15.6 was verified against the preceding six-tool surface. See
+[Compatibility evidence](#compatibility-evidence) for the precise boundary of each claim.
 
 ## MCP protocol compatibility
 
@@ -31,6 +31,7 @@ to one user-selected Anyshift project.
 ## Capabilities
 
 - resolve ambiguous infrastructure resources;
+- trace bidirectional public-edge exposure paths, controls, and explicit evidence gaps;
 - inspect direct dependencies and bounded transitive blast radius;
 - correlate recent changes with topology;
 - assess evidence-backed operational impact; and
@@ -92,7 +93,7 @@ cursor --add-mcp '{"name":"anyshift-production-intelligence","url":"https://grap
 ```
 
 Then authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the Anyshift project the
-plugin may read, and start a new agent chat so the six Graph tools are available.
+plugin may read, and start a new agent chat so the Graph tools are available.
 
 This URL-only config is enough for OAuth, tool discovery, and authenticated reads. Package
 attribution headers are not part of the Cursor install snippet; the portable package `mcp.json`
@@ -180,13 +181,15 @@ untrusted-data boundary.
 
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |
 |---|---:|---|---|---|---|---|
-| Codex CLI on macOS | 0.147.0, explicit `codex mcp add` | Pass | Pass | Six tools discovered | `get_recent_changes` passed | 2026-08-08 |
+| Codex CLI on macOS | 0.147.0, explicit `codex mcp add` | Pass | Pass | Seven tools discovered | `get_exposure` passed | 2026-08-12 |
 | Cursor on Linux | 3.15.6, `~/.cursor/mcp.json` remote URL + OAuth | Pass | Pass | Six tools discovered | `get_recent_changes` passed | 2026-08-11 |
 
-The verified tools are `resolve_resource`, `get_dependencies`, `get_blast_radius`,
-`get_recent_changes`, `get_operational_impact`, and `query_graph`. The authenticated call returned
-structured production evidence with a current evidence timestamp. Tokens, OAuth client identifiers,
-project identifiers, and customer resource names are intentionally excluded from this record.
+The current verified Codex tools are `resolve_resource`, `get_exposure`, `get_dependencies`,
+`get_blast_radius`, `get_recent_changes`, `get_operational_impact`, and `query_graph`. The
+authenticated calls returned structured production evidence with current evidence timestamps.
+Cursor verification predates `get_exposure`; its row is intentionally not upgraded without a new
+client-specific check. Tokens, OAuth client identifiers, project identifiers, and customer resource
+names are intentionally excluded from this record.
 
 VS Code, GitHub, Claude, and other compatible clients remain unverified until their exact client
 version, installation path, OAuth discovery, initialization, tool discovery, one tool call, and
