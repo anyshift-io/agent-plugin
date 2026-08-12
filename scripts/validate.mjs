@@ -59,6 +59,10 @@ assert.equal(codexPlugin.name, plugin.name, "portable and Codex plugin names dif
 assert.equal(codexPlugin.version, plugin.version, "portable and Codex plugin versions differ");
 assert.equal(codexPlugin.repository, plugin.repository, "portable and Codex repositories differ");
 assert.equal(codexPlugin.skills, "./skills/");
+assert.ok(
+  codexPlugin.interface.defaultPrompt.length <= 3,
+  "Codex supports at most three default prompts",
+);
 assert.equal("mcpServers" in codexPlugin, false, "Codex metadata must not duplicate portable mcp.json");
 
 const server = mcp.mcpServers["anyshift-production-intelligence"];
@@ -73,7 +77,7 @@ assert.deepEqual(server, {
 for (const name of Object.keys(server.headers)) {
   assert.doesNotMatch(name, /^(authorization|cookie|proxy-authorization|x-api-key)$/i);
 }
-assert.equal(plugin.version, "0.1.2", "plugin version must be 0.1.2");
+assert.equal(plugin.version, "0.1.3", "plugin version must be 0.1.3");
 assert.equal(codexPlugin.version, plugin.version, "Codex plugin version must match portable plugin version");
 const packageManifest = await json("package.json");
 const packageLock = await json("package-lock.json");
