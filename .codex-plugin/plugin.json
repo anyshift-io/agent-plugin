@@ -1,6 +1,6 @@
 {
   "name": "anyshift-production-intelligence",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Ground agent decisions in deterministic Anyshift production evidence.",
   "author": {
     "name": "Anyshift",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "Anyshift Production Intelligence",
     "shortDescription": "Ground agent decisions in live production evidence",
-    "longDescription": "Resolve production resources, inspect dependencies and blast radius, correlate recent changes, and assess operational impact using deterministic, read-only Anyshift graph evidence.",
+    "longDescription": "Resolve production resources, trace public-edge exposure, inspect dependencies and blast radius, correlate recent changes, and assess operational impact using deterministic, read-only Anyshift graph evidence.",
     "developerName": "Anyshift",
     "category": "Developer Tools",
     "capabilities": [
@@ -33,6 +33,7 @@
     "termsOfServiceURL": "https://anyshift.io/terms",
     "defaultPrompt": [
       "What changed recently in production?",
+      "Trace this public hostname from the edge to its cloud workload.",
       "Show the blast radius of this resource.",
       "Assess the operational impact of this change."
     ],

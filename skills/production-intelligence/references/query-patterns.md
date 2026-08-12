@@ -5,6 +5,7 @@
 | Decision | Tool | Interpretation |
 |---|---|---|
 | Which resource does this human name identify? | `resolve_resource` | Candidate identity, not a guess |
+| What public edge or workload exposure is observed? | `get_exposure` | Stored-edge paths, controls, and explicit evidence gaps |
 | What directly connects to this resource? | `get_dependencies` | Direct upstream and downstream evidence |
 | What could be reached if this changes or fails? | `get_blast_radius` | Bounded transitive reachability, not guaranteed failure |
 | What changed recently? | `get_recent_changes` | Observed time-windowed events |
@@ -13,6 +14,16 @@
 
 Do not use direct dependencies as a synonym for blast radius. Do not use blast radius as proof that
 every reachable node will fail.
+
+## Trace exposure without filling gaps
+
+Use `get_exposure` for both edge-to-workload and workload-to-edge questions. Preserve the returned
+perspective and verdict. A `confirmed` result requires a fresh complete observed path, while a
+`partial` result deliberately returns the useful known chain with an explicit unknown gap.
+Do not describe `not_observed` as proof that a resource is private.
+
+Summarize observed controls separately from missing inventory. Do not infer WAF, Access, TLS,
+rate-limit, origin, or runtime coverage that the response does not explicitly support.
 
 ## Resolve before traversing
 
