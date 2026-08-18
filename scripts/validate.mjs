@@ -53,8 +53,8 @@ const marketplace = await json(".agents/plugins/marketplace.json");
 assert.equal(plugin.$schema.split("/").at(-2), mcp.$schema.split("/").at(-2), "schema versions differ");
 validateWithSchema(plugin, await schema(plugin.$schema));
 validateWithSchema(mcp, await schema(mcp.$schema));
-assert.equal(plugin.name, "anyshift-production-intelligence");
-assert.equal(plugin.repository, "https://github.com/anyshift-io/anyshift-production-intelligence");
+assert.equal(plugin.name, "agent-plugin");
+assert.equal(plugin.repository, "https://github.com/anyshift-io/agent-plugin");
 assert.equal(codexPlugin.name, plugin.name, "portable and Codex plugin names differ");
 assert.equal(codexPlugin.version, plugin.version, "portable and Codex plugin versions differ");
 assert.equal(codexPlugin.repository, plugin.repository, "portable and Codex repositories differ");
@@ -65,7 +65,7 @@ assert.ok(
 );
 assert.equal("mcpServers" in codexPlugin, false, "Codex metadata must not duplicate portable mcp.json");
 
-const server = mcp.mcpServers["anyshift-production-intelligence"];
+const server = mcp.mcpServers["agent-plugin"];
 assert.deepEqual(server, {
   type: "streamable-http",
   url: "https://graph.anyshift.io/mcp",

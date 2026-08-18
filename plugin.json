@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "anyshift-production-intelligence",
+  "name": "agent-plugin",
   "version": "0.1.3",
   "description": "Ground agent decisions in deterministic Anyshift production evidence.",
   "author": {
@@ -8,7 +8,7 @@
     "url": "https://anyshift.io"
   },
   "homepage": "https://anyshift.io",
-  "repository": "https://github.com/anyshift-io/anyshift-production-intelligence",
+  "repository": "https://github.com/anyshift-io/agent-plugin",
   "license": "MIT",
   "keywords": ["production", "infrastructure", "graph", "mcp", "incidents", "changes", "exposure"]
 }

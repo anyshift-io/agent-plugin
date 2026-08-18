@@ -5,7 +5,7 @@
   },
   "plugins": [
     {
-      "name": "anyshift-production-intelligence",
+      "name": "agent-plugin",
       "source": {
         "source": "url",
         "url": "./"

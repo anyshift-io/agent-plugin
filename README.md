@@ -10,7 +10,7 @@ collect consent for one Anyshift project, and store credentials themselves.
 
 ## Status
 
-Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/anyshift-production-intelligence/releases),
+Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/agent-plugin/releases),
 and each package release remains gated on production verification of its matching Graph API support.
 The portable package validates against Agent Plugins 1.0.0, and the production endpoint has passed
 OAuth discovery, MCP connection, discovery of all seven tools, and authenticated read-only calls
@@ -52,9 +52,9 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended:
 
 ```bash
-codex plugin marketplace add anyshift-io/anyshift-production-intelligence --ref main
-codex plugin add anyshift-production-intelligence@anyshift
-codex mcp add anyshift-production-intelligence --url https://graph.anyshift.io/mcp
+codex plugin marketplace add anyshift-io/agent-plugin --ref main
+codex plugin add agent-plugin@anyshift
+codex mcp add agent-plugin --url https://graph.anyshift.io/mcp
 ```
 
 The final command is required by Codex CLI 0.147.0 because its plugin installer does not yet launch
@@ -79,7 +79,7 @@ Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` ent
 ```json
 {
   "mcpServers": {
-    "anyshift-production-intelligence": {
+    "agent-plugin": {
       "url": "https://graph.anyshift.io/mcp"
     }
   }
@@ -89,7 +89,7 @@ Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` ent
 Or register the same remote URL through the Cursor CLI:
 
 ```bash
-cursor --add-mcp '{"name":"anyshift-production-intelligence","url":"https://graph.anyshift.io/mcp"}'
+cursor --add-mcp '{"name":"agent-plugin","url":"https://graph.anyshift.io/mcp"}'
 ```
 
 Then authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the Anyshift project the
@@ -104,8 +104,8 @@ supplies them by default when you install the Agent Plugin (see below).
 To load the portable `plugin.json`, `mcp.json`, and `skills/` package from disk while developing:
 
 ```bash
-git clone https://github.com/anyshift-io/anyshift-production-intelligence.git \
-  ~/.cursor/plugins/local/anyshift-production-intelligence
+git clone https://github.com/anyshift-io/agent-plugin.git \
+  ~/.cursor/plugins/local/agent-plugin
 ```
 
 Reload the Cursor window (`Developer: Reload Window`). Cursor discovers Agent Plugins from
@@ -118,10 +118,10 @@ rejects out-of-tree local plugin symlink targets and skips the package.
 
 #### Uninstall (Cursor)
 
-1. Remove the `anyshift-production-intelligence` entry from `~/.cursor/mcp.json` (or the matching
+1. Remove the `agent-plugin` entry from `~/.cursor/mcp.json` (or the matching
    entry created by `cursor --add-mcp` under Cursor settings MCP servers).
 2. If you installed the local package, delete
-   `~/.cursor/plugins/local/anyshift-production-intelligence`.
+   `~/.cursor/plugins/local/agent-plugin`.
 3. Reload the Cursor window.
 
 #### Cursor caveats
