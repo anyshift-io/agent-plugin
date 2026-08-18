@@ -1,9 +1,9 @@
 ---
-name: production-intelligence
+name: agent-plugin
 description: Ground production, infrastructure, incident, change, deployment, exposure, and architecture decisions in current Anyshift graph evidence. Use when an agent needs to resolve a production resource, trace public-edge exposure, inspect direct dependencies, estimate transitive blast radius, correlate recent changes, assess operational impact, or run a bounded deterministic Graph API query.
 ---
 
-# Anyshift Production Intelligence
+# Anyshift Agent Plugin
 
 Use Anyshift as a production evidence source inside the user's current task. Do not start an
 autonomous incident workflow or substitute graph evidence for the user's decision.

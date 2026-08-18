@@ -19,7 +19,7 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Anyshift Production Intelligence",
+    "displayName": "Anyshift Agent Plugin",
     "shortDescription": "Ground agent decisions in live production evidence",
     "longDescription": "Resolve production resources, trace public-edge exposure, inspect dependencies and blast radius, correlate recent changes, and assess operational impact using deterministic, read-only Anyshift graph evidence.",
     "developerName": "Anyshift",
