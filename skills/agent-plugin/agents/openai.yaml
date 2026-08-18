@@ -1,4 +1,4 @@
 interface:
-  display_name: "Anyshift Production Intelligence"
+  display_name: "Anyshift Agent Plugin"
   short_description: "Ground agent decisions in live production evidence"
   default_prompt: "Use Anyshift production evidence to answer this operational context question."

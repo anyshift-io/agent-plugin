@@ -1,4 +1,4 @@
-# Anyshift Production Intelligence
+# Anyshift Agent Plugin
 
 A portable [Agent Plugins 1.0.0](https://agent-plugins.org/specification) package that gives
 compatible agent clients fast, deterministic, read-only production evidence from Anyshift over
