@@ -1,11 +1,11 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
   "mcpServers": {
-    "anyshift-production-intelligence": {
+    "agent-plugin": {
       "type": "streamable-http",
       "url": "https://graph.anyshift.io/mcp",
       "headers": {
-        "X-Anyshift-Agent-Plugin": "anyshift-production-intelligence",
+        "X-Anyshift-Agent-Plugin": "agent-plugin",
         "X-Anyshift-Agent-Plugin-Version": "0.1.3"
       }
     }
