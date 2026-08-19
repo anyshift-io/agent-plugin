@@ -4,21 +4,30 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+import {
+  loadJsonObject,
+  loadYamlObject,
+  validateCodexPlugin,
+  validateMarketplace,
+  validateOpenAiAgent,
+} from "./lib/codex-contracts.mjs";
+
+const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const rootFlag = process.argv.indexOf("--root");
+assert.notEqual(rootFlag, process.argv.length - 1, "--root requires a path");
+const root = rootFlag === -1 ? defaultRoot : resolve(process.argv[rootFlag + 1]);
+const openAiAgentPath = "skills/agent-plugin/agents/openai.yaml";
 const requiredFiles = [
   "plugin.json",
   "mcp.json",
   ".codex-plugin/plugin.json",
   ".agents/plugins/marketplace.json",
   "skills/agent-plugin/SKILL.md",
+  openAiAgentPath,
   "skills/agent-plugin/references/query-patterns.md",
   "README.md",
   "LICENSE",
 ];
-
-async function json(path) {
-  return JSON.parse(await readFile(join(root, path), "utf8"));
-}
 
 async function schema(url) {
   const response = await fetch(url);
@@ -46,10 +55,14 @@ async function rejectSymlinks(path = root) {
 for (const path of requiredFiles) assert.equal((await lstat(join(root, path))).isFile(), true, `missing ${path}`);
 await rejectSymlinks();
 
-const plugin = await json("plugin.json");
-const mcp = await json("mcp.json");
-const codexPlugin = await json(".codex-plugin/plugin.json");
-const marketplace = await json(".agents/plugins/marketplace.json");
+const plugin = await loadJsonObject(join(root, "plugin.json"));
+const mcp = await loadJsonObject(join(root, "mcp.json"));
+const codexPlugin = await loadJsonObject(join(root, ".codex-plugin/plugin.json"));
+const marketplace = await loadJsonObject(join(root, ".agents/plugins/marketplace.json"));
+const openAiAgent = await loadYamlObject(join(root, openAiAgentPath));
+validateCodexPlugin(codexPlugin);
+validateMarketplace(marketplace);
+validateOpenAiAgent(openAiAgent);
 assert.equal(plugin.$schema.split("/").at(-2), mcp.$schema.split("/").at(-2), "schema versions differ");
 validateWithSchema(plugin, await schema(plugin.$schema));
 validateWithSchema(mcp, await schema(mcp.$schema));
@@ -79,8 +92,8 @@ for (const name of Object.keys(server.headers)) {
 }
 assert.equal(plugin.version, "0.2.0", "plugin version must be 0.2.0");
 assert.equal(codexPlugin.version, plugin.version, "Codex plugin version must match portable plugin version");
-const packageManifest = await json("package.json");
-const packageLock = await json("package-lock.json");
+const packageManifest = await loadJsonObject(join(root, "package.json"));
+const packageLock = await loadJsonObject(join(root, "package-lock.json"));
 assert.equal(packageManifest.version, plugin.version, "package version must match portable plugin version");
 assert.equal(packageLock.version, plugin.version, "lockfile version must match portable plugin version");
 assert.equal(packageLock.packages[""].version, plugin.version, "root lockfile package version must match portable plugin version");
