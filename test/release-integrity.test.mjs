@@ -32,7 +32,10 @@ const valid = {
 };
 
 test("current package metadata normalizes every release surface", async () => {
-  assert.deepEqual(await readPackageMetadata(root), valid);
+  const metadata = await readPackageMetadata(root);
+  assert.equal(metadata.portableName, "agent-plugin");
+  assert.doesNotThrow(() => verifyInternalConsistency(metadata));
+  assert.doesNotThrow(() => verifyReleaseTag(metadata, `v${metadata.portableVersion}`));
 });
 
 test("v0.2.0 matches the complete package", () => {
@@ -84,25 +87,33 @@ test("stale README stable ref fails", () => {
   assert.throws(() => verifyInternalConsistency(metadata), /readmeStableRef/);
 });
 
-test("release verifier CLI accepts the current package tag", () => {
-  const result = spawnSync(process.execPath, [join(root, "scripts/verify-release.mjs"), "v0.2.0"], {
+test("release verifier CLI accepts the current package tag", async () => {
+  const metadata = await readPackageMetadata(root);
+  const currentTag = `v${metadata.portableVersion}`;
+  const result = spawnSync(process.execPath, [join(root, "scripts/verify-release.mjs"), currentTag], {
     encoding: "utf8",
   });
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /Release integrity passed for v0\.2\.0/);
+  assert.equal(result.stdout.trim(), `Release integrity passed for ${currentTag}.`);
 });
 
-test("release verifier CLI rejects a future tag before the package bump", () => {
-  const result = spawnSync(process.execPath, [join(root, "scripts/verify-release.mjs"), "v0.2.1"], {
+test("release verifier CLI rejects a future tag before the package bump", async () => {
+  const metadata = await readPackageMetadata(root);
+  const [major, minor, patch] = metadata.portableVersion.split(".").map(Number);
+  const futureTag = `v${major}.${minor}.${patch + 1}`;
+  const result = spawnSync(process.execPath, [join(root, "scripts/verify-release.mjs"), futureTag], {
     encoding: "utf8",
   });
 
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /tag v0\.2\.1.*portableVersion 0\.2\.0/i);
+  assert.match(result.stderr, new RegExp(`tag ${futureTag.replaceAll(".", "\\.")}.*portableVersion ${metadata.portableVersion.replaceAll(".", "\\.")}`, "i"));
 });
 
 test("package validation accepts a fully consistent future version", async () => {
+  const current = await readPackageMetadata(root);
+  const [major, minor, patch] = current.portableVersion.split(".").map(Number);
+  const futureVersion = `${major}.${minor}.${patch + 1}`;
   const directory = await mkdtemp(join(tmpdir(), "agent-plugin-version-"));
   await cp(root, directory, {
     recursive: true,
@@ -116,19 +127,23 @@ test("package validation accepts a fully consistent future version", async () =>
     await writeFile(path, `${JSON.stringify(document, null, 2)}\n`, "utf8");
   }
 
-  await updateJson("plugin.json", value => { value.version = "0.2.1"; });
-  await updateJson(".codex-plugin/plugin.json", value => { value.version = "0.2.1"; });
-  await updateJson("package.json", value => { value.version = "0.2.1"; });
+  await updateJson("plugin.json", value => { value.version = futureVersion; });
+  await updateJson(".codex-plugin/plugin.json", value => { value.version = futureVersion; });
+  await updateJson("package.json", value => { value.version = futureVersion; });
   await updateJson("package-lock.json", value => {
-    value.version = "0.2.1";
-    value.packages[""].version = "0.2.1";
+    value.version = futureVersion;
+    value.packages[""].version = futureVersion;
   });
   await updateJson("mcp.json", value => {
-    value.mcpServers["agent-plugin"].headers["X-Anyshift-Agent-Plugin-Version"] = "0.2.1";
+    value.mcpServers["agent-plugin"].headers["X-Anyshift-Agent-Plugin-Version"] = futureVersion;
   });
   const readmePath = join(directory, "README.md");
   const readme = await readFile(readmePath, "utf8");
-  await writeFile(readmePath, readme.replace("--ref v0.2.0", "--ref v0.2.1"), "utf8");
+  await writeFile(
+    readmePath,
+    readme.replace(`--ref v${current.portableVersion}`, `--ref v${futureVersion}`),
+    "utf8",
+  );
 
   try {
     const result = spawnSync(process.execPath, [join(root, "scripts/validate.mjs"), "--root", directory], {
