@@ -7,29 +7,46 @@ import { loadYamlObject } from "../scripts/lib/codex-contracts.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
-test("release workflow validates before publishing and verifies the resulting tag", async () => {
+const PINNED_ACTION = /^[^@]+@[0-9a-f]{40}$/;
+
+function assertActionsArePinned(workflow) {
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps ?? []) {
+      if (step.uses) {
+        assert.match(step.uses, PINNED_ACTION, `${step.uses} must use a full commit SHA`);
+      }
+    }
+  }
+}
+
+test("release workflow isolates read-only validation from publication", async () => {
   const workflow = await loadYamlObject(join(root, ".github/workflows/release.yml"));
 
   assert.ok(workflow.on.workflow_dispatch, "release must be manually dispatched");
   assert.equal(workflow.on.workflow_dispatch.inputs.tag.required, true);
-  assert.equal(workflow.permissions.contents, "write");
-  assert.equal(workflow.jobs.release.if, "github.ref == 'refs/heads/main'");
+  assert.equal(workflow.permissions.contents, "read");
+  assert.equal(workflow.jobs.validate.if, "github.ref == 'refs/heads/main'");
+  assert.equal(workflow.jobs.validate.permissions.contents, "read");
+  assert.equal(workflow.jobs.publish.permissions.contents, "write");
+  assert.equal(workflow.jobs.publish.needs, "validate");
+  assert.equal(workflow.jobs.validate.outputs["release-tag"], "${{ inputs.tag }}");
+  assert.equal(workflow.jobs.validate.outputs["release-sha"], "${{ github.sha }}");
 
-  const steps = workflow.jobs.release.steps;
-  const commands = steps.map(step => step.run ?? "").join("\n");
-  const testIndex = commands.indexOf("npm test");
-  const validateIndex = commands.indexOf("npm run validate");
-  const integrityIndex = commands.indexOf("npm run verify:release");
-  const publishIndex = commands.indexOf("gh release create");
-  const postPublishIndex = commands.indexOf("git rev-list -n 1");
+  const checkout = workflow.jobs.validate.steps.find(step => step.uses?.startsWith("actions/checkout@"));
+  assert.ok(checkout, "validation must check out the release candidate");
+  assert.equal(checkout.with["persist-credentials"], false);
 
-  assert.ok(testIndex >= 0 && testIndex < publishIndex, "tests must run before publication");
-  assert.ok(validateIndex >= 0 && validateIndex < publishIndex, "validation must run before publication");
-  assert.ok(integrityIndex >= 0 && integrityIndex < publishIndex, "release integrity must run before publication");
-  assert.ok(commands.indexOf("refs/tags/$RELEASE_TAG") < publishIndex, "existing tag check must run before publication");
-  assert.ok(commands.indexOf("gh release view \"$RELEASE_TAG\"") < publishIndex, "existing release check must run before publication");
-  assert.ok(postPublishIndex > publishIndex, "tag SHA verification must run after publication");
-  assert.match(commands, /gh release create "\$RELEASE_TAG" --generate-notes --target "\$GITHUB_SHA"/);
+  const validationCommands = workflow.jobs.validate.steps.map(step => step.run ?? "").join("\n");
+  assert.match(validationCommands, /npm test/);
+  assert.match(validationCommands, /npm run validate/);
+  assert.match(validationCommands, /npm run verify:release/);
+
+  const publishCommands = workflow.jobs.publish.steps.map(step => step.run ?? "").join("\n");
+  assert.doesNotMatch(publishCommands, /npm|node|scripts\//, "publish must not execute repository code");
+  assert.match(publishCommands, /gh release create "\$RELEASE_TAG"/);
+  assert.match(publishCommands, /--target "\$RELEASE_SHA"/);
+  assert.match(publishCommands, /repos\/\$GITHUB_REPOSITORY\/commits\/\$RELEASE_TAG/);
+  assertActionsArePinned(workflow);
 });
 
 test("validation workflow verifies every direct v-prefixed tag push", async () => {
@@ -40,4 +57,7 @@ test("validation workflow verifies every direct v-prefixed tag push", async () =
   assert.ok(tagStep, "tag validation step is required");
   assert.equal(tagStep.if, "startsWith(github.ref, 'refs/tags/v')");
   assert.match(tagStep.run, /"\$GITHUB_REF_NAME"/);
+  const checkout = workflow.jobs.validate.steps.find(step => step.uses?.startsWith("actions/checkout@"));
+  assert.equal(checkout.with["persist-credentials"], false);
+  assertActionsArePinned(workflow);
 });
