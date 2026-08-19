@@ -77,7 +77,7 @@ assert.deepEqual(server, {
 for (const name of Object.keys(server.headers)) {
   assert.doesNotMatch(name, /^(authorization|cookie|proxy-authorization|x-api-key)$/i);
 }
-assert.equal(plugin.version, "0.1.3", "plugin version must be 0.1.3");
+assert.equal(plugin.version, "0.2.0", "plugin version must be 0.2.0");
 assert.equal(codexPlugin.version, plugin.version, "Codex plugin version must match portable plugin version");
 const packageManifest = await json("package.json");
 const packageLock = await json("package-lock.json");
@@ -111,5 +111,10 @@ assert.match(queryPatterns, /Do not describe `not_observed` as proof that a reso
 const readme = await readFile(join(root, "README.md"), "utf8");
 assert.match(readme, /discovery of all seven tools/);
 assert.match(readme, /`get_exposure` passed/);
+assert.match(
+  readme,
+  new RegExp(`codex plugin marketplace add anyshift-io/agent-plugin --ref v${plugin.version.replaceAll(".", "\\.")}`),
+  "README stable install must reference the package version",
+);
 
 process.stdout.write("Anyshift Agent Plugin validation passed.\n");
