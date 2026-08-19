@@ -52,7 +52,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.2.0
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.2.1
 codex plugin add agent-plugin@anyshift
 codex mcp add agent-plugin --url https://graph.anyshift.io/mcp
 ```
