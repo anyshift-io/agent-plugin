@@ -200,9 +200,11 @@ gh workflow run release.yml \
   -f tag="$release_tag"
 ```
 
-The workflow does not choose or bump the version. It runs tests, package validation, and tag-aware
-integrity checks before creating the GitHub release, refuses existing tags/releases, and verifies
-the published tag resolves to the exact `main` commit used by the workflow.
+The workflow does not choose or bump the version. A read-only job runs tests, package validation,
+and tag-aware integrity checks without a persisted Git credential. Only its verified tag and exact
+`main` commit SHA cross into the isolated publishing job, which executes no package code, refuses
+existing tags/releases, creates the GitHub release, and verifies the published tag resolves to that
+SHA.
 
 ## Compatibility evidence
 

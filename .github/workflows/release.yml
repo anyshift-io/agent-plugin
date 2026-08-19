@@ -9,23 +9,30 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: agent-plugin-release
   cancel-in-progress: false
 
 jobs:
-  release:
+  validate:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release-tag: ${{ inputs.tag }}
+      release-sha: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: Test package contracts
         run: npm test
       - name: Validate package
@@ -34,37 +41,43 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: npm run verify:release -- "$RELEASE_TAG"
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.validate.outputs.release-tag }}
+      RELEASE_SHA: ${{ needs.validate.outputs.release-sha }}
+    steps:
       - name: Refuse existing tag or release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Tag $RELEASE_TAG already exists" >&2
             exit 1
           fi
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists" >&2
             exit 1
           fi
       - name: Publish release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" --generate-notes --target "$GITHUB_SHA"
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --generate-notes \
+            --target "$RELEASE_SHA"
       - name: Verify published tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-          actual_sha="$(git rev-list -n 1 "$RELEASE_TAG")"
-          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
-            echo "Tag $RELEASE_TAG resolved to $actual_sha, expected $GITHUB_SHA" >&2
+          actual_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)"
+          if [ "$actual_sha" != "$RELEASE_SHA" ]; then
+            echo "Tag $RELEASE_TAG resolved to $actual_sha, expected $RELEASE_SHA" >&2
             exit 1
           fi
-          gh release view "$RELEASE_TAG" --json tagName,targetCommitish,publishedAt,url
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,targetCommitish,publishedAt,url
