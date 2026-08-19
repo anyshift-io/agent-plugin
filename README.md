@@ -184,7 +184,8 @@ npm run validate
 
 The validator loads the immutable canonical Agent Plugins 1.0.0 schemas, checks the complete
 package layout, rejects symlinks and credential-bearing MCP configuration, and verifies the skill's
-untrusted-data boundary.
+untrusted-data boundary. It also enforces repository-owned contracts for the Codex plugin manifest,
+marketplace metadata, and `skills/agent-plugin/agents/openai.yaml`.
 
 ## Compatibility evidence
 
