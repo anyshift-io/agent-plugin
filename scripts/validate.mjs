@@ -11,6 +11,7 @@ import {
   validateMarketplace,
   validateOpenAiAgent,
 } from "./lib/codex-contracts.mjs";
+import { readPackageMetadata, verifyInternalConsistency } from "./lib/package-metadata.mjs";
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rootFlag = process.argv.indexOf("--root");
@@ -63,6 +64,7 @@ const openAiAgent = await loadYamlObject(join(root, openAiAgentPath));
 validateCodexPlugin(codexPlugin);
 validateMarketplace(marketplace);
 validateOpenAiAgent(openAiAgent);
+verifyInternalConsistency(await readPackageMetadata(root));
 assert.equal(plugin.$schema.split("/").at(-2), mcp.$schema.split("/").at(-2), "schema versions differ");
 validateWithSchema(plugin, await schema(plugin.$schema));
 validateWithSchema(mcp, await schema(mcp.$schema));
@@ -90,7 +92,6 @@ assert.deepEqual(server, {
 for (const name of Object.keys(server.headers)) {
   assert.doesNotMatch(name, /^(authorization|cookie|proxy-authorization|x-api-key)$/i);
 }
-assert.equal(plugin.version, "0.2.0", "plugin version must be 0.2.0");
 assert.equal(codexPlugin.version, plugin.version, "Codex plugin version must match portable plugin version");
 const packageManifest = await loadJsonObject(join(root, "package.json"));
 const packageLock = await loadJsonObject(join(root, "package-lock.json"));

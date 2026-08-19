@@ -187,6 +187,23 @@ package layout, rejects symlinks and credential-bearing MCP configuration, and v
 untrusted-data boundary. It also enforces repository-owned contracts for the Codex plugin manifest,
 marketplace metadata, and `skills/agent-plugin/agents/openai.yaml`.
 
+## Release
+
+After updating every version-bearing manifest, attribution header, lockfile field, and the stable
+README install ref, publish from `main` through the guarded workflow:
+
+```bash
+release_tag="v$(node -p "require('./plugin.json').version")"
+gh workflow run release.yml \
+  --repo anyshift-io/agent-plugin \
+  --ref main \
+  -f tag="$release_tag"
+```
+
+The workflow does not choose or bump the version. It runs tests, package validation, and tag-aware
+integrity checks before creating the GitHub release, refuses existing tags/releases, and verifies
+the published tag resolves to the exact `main` commit used by the workflow.
+
 ## Compatibility evidence
 
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |

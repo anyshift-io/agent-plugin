@@ -1,0 +1,70 @@
+name: Publish Agent Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag matching the package version (for example, v0.2.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-plugin-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Test package contracts
+        run: npm test
+      - name: Validate package
+        run: npm run validate
+      - name: Verify requested release
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: npm run verify:release -- "$RELEASE_TAG"
+      - name: Refuse existing tag or release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists" >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists" >&2
+            exit 1
+          fi
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" --generate-notes --target "$GITHUB_SHA"
+      - name: Verify published tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          actual_sha="$(git rev-list -n 1 "$RELEASE_TAG")"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "Tag $RELEASE_TAG resolved to $actual_sha, expected $GITHUB_SHA" >&2
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --json tagName,targetCommitish,publishedAt,url
