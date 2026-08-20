@@ -63,12 +63,17 @@ export function verifyInternalConsistency(metadata) {
     "packageName",
     "lockName",
     "lockRootName",
-    "mcpServerName",
     "attributionName",
     "marketplaceName",
   ]) {
     equalField(metadata, field, "portableName");
   }
+
+  assert.equal(
+    metadata.mcpServerName,
+    "Anyshift",
+    `mcpServerName ${metadata.mcpServerName} must be Anyshift`,
+  );
 
   for (const field of [
     "codexVersion",

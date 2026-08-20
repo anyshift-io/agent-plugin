@@ -54,7 +54,7 @@ Codex 0.147.0 or newer is recommended. Install the latest verified release:
 ```bash
 codex plugin marketplace add anyshift-io/agent-plugin --ref v0.2.2
 codex plugin add agent-plugin@anyshift
-codex mcp add agent-plugin --url https://graph.anyshift.io/mcp
+codex mcp add Anyshift --url https://graph.anyshift.io/mcp
 ```
 
 To test unreleased development changes instead, register `main` as an edge marketplace source:
@@ -88,7 +88,7 @@ Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` ent
 ```json
 {
   "mcpServers": {
-    "agent-plugin": {
+    "Anyshift": {
       "url": "https://graph.anyshift.io/mcp"
     }
   }
@@ -98,7 +98,7 @@ Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` ent
 Or register the same remote URL through the Cursor CLI:
 
 ```bash
-cursor --add-mcp '{"name":"agent-plugin","url":"https://graph.anyshift.io/mcp"}'
+cursor --add-mcp '{"name":"Anyshift","url":"https://graph.anyshift.io/mcp"}'
 ```
 
 Then authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the Anyshift project the
@@ -127,8 +127,9 @@ rejects out-of-tree local plugin symlink targets and skips the package.
 
 #### Uninstall (Cursor)
 
-1. Remove the `agent-plugin` entry from `~/.cursor/mcp.json` (or the matching
-   entry created by `cursor --add-mcp` under Cursor settings MCP servers).
+1. Remove the `Anyshift` entry from `~/.cursor/mcp.json` (or the matching
+   entry created by `cursor --add-mcp` under Cursor settings MCP servers). If an
+   older install used the `agent-plugin` key, remove that entry instead.
 2. If you installed the local package, delete
    `~/.cursor/plugins/local/agent-plugin`.
 3. Reload the Cursor window.

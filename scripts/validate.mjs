@@ -80,7 +80,7 @@ assert.ok(
 );
 assert.equal("mcpServers" in codexPlugin, false, "Codex metadata must not duplicate portable mcp.json");
 
-const server = mcp.mcpServers["agent-plugin"];
+const server = mcp.mcpServers.Anyshift;
 assert.deepEqual(server, {
   type: "streamable-http",
   url: "https://graph.anyshift.io/mcp",
