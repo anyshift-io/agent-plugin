@@ -78,39 +78,16 @@ unaffected; no unauthenticated request can read graph data.
 ### Cursor
 
 Cursor 3.15.6 or newer is recommended. Cursor supports Agent Plugins and remote Streamable HTTP MCP
-with OAuth. The verified install path below registers the Graph MCP endpoint in the user MCP config
-and completes browser OAuth plus project consent.
+with OAuth.
 
-#### Verified path: user MCP config
+#### Cursor Marketplace
 
-Add the server to `~/.cursor/mcp.json` (merge with any existing `mcpServers` entries):
+One-click install from the Cursor Marketplace is coming. Until that lands, use the local Agent
+Plugin package below.
 
-```json
-{
-  "mcpServers": {
-    "Anyshift": {
-      "url": "https://graph.anyshift.io/mcp"
-    }
-  }
-}
-```
+#### Local Agent Plugin package
 
-Or register the same remote URL through the Cursor CLI:
-
-```bash
-cursor --add-mcp '{"name":"Anyshift","url":"https://graph.anyshift.io/mcp"}'
-```
-
-Then authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the Anyshift project the
-plugin may read, and start a new agent chat so the Graph tools are available.
-
-This URL-only config is enough for OAuth, tool discovery, and authenticated reads. Package
-attribution headers are not part of the Cursor install snippet; the portable package `mcp.json`
-supplies them by default when you install the Agent Plugin (see below).
-
-#### Optional: local Agent Plugin package
-
-To load the portable `plugin.json`, `mcp.json`, and `skills/` package from disk while developing:
+Install the portable Agent Plugin package so Cursor loads the skill and MCP configuration together:
 
 ```bash
 git clone https://github.com/anyshift-io/agent-plugin.git \
@@ -118,39 +95,24 @@ git clone https://github.com/anyshift-io/agent-plugin.git \
 ```
 
 Reload the Cursor window (`Developer: Reload Window`). Cursor discovers Agent Plugins from
-`~/.cursor/plugins/local`. The package `mcp.json` already includes the attribution headers, so you
-do not need to copy them into `~/.cursor/mcp.json`. Complete OAuth for the Graph MCP server if it
-is not already authenticated.
+`~/.cursor/plugins/local`. Authenticate when Cursor prompts (`needsAuth` / `mcp_auth`), select the
+Anyshift project the plugin may read, and start a new agent chat so the Graph tools are available.
 
 Do not symlink a checkout from outside `~/.cursor/plugins/local` into that directory. Cursor 3.15.6
 rejects out-of-tree local plugin symlink targets and skips the package.
 
 #### Uninstall (Cursor)
 
-1. Remove the `Anyshift` entry from `~/.cursor/mcp.json` (or the matching
-   entry created by `cursor --add-mcp` under Cursor settings MCP servers). If an
-   older install used the `agent-plugin` key, remove that entry instead.
-2. If you installed the local package, delete
-   `~/.cursor/plugins/local/agent-plugin`.
-3. Reload the Cursor window.
+1. Delete `~/.cursor/plugins/local/agent-plugin`.
+2. Reload the Cursor window.
 
 #### Cursor caveats
 
-- Prefer either the user MCP config path or the local Agent Plugin package, not both at once.
-  Installing both registers two Cursor MCP clients against the same Graph endpoint and can clear
-  stored OAuth credentials when one of them is removed.
-- Attribution headers are not required for OAuth or tool calls on the user MCP path. Prefer the
-  local Agent Plugin package when you want package attribution by default.
-- Cursor's verified remote MCP shape uses a `url` field. Cursor connects over Streamable HTTP and
-  runs OAuth when the endpoint challenges. The portable package `mcp.json` keeps the Agent Plugins
-  `type: "streamable-http"` form for cross-client portability; Cursor accepts that package form when
-  loading the local Agent Plugin.
-- `cursor --add-mcp` writes into Cursor settings MCP servers; editing `~/.cursor/mcp.json` is the
-  file-based path documented above. Both can register the same remote endpoint.
+- Local plugin symlinks whose target is outside `~/.cursor/plugins/local` are rejected.
 - While unauthenticated, Cursor may expose a client-side `mcp_auth` helper alongside the Graph
   tools. That helper is not part of the Graph API tool surface.
-- Cursor Marketplace one-click install is not verified for this package yet.
-- Local plugin symlinks whose target is outside `~/.cursor/plugins/local` are rejected.
+- The portable package `mcp.json` keeps the Agent Plugins `type: "streamable-http"` form for
+  cross-client portability; Cursor accepts that package form when loading the local Agent Plugin.
 
 ## Usage attribution
 
@@ -158,8 +120,7 @@ Compatible Agent Plugin clients send a fixed, non-secret package name and versio
 
 Codex CLI 0.147.0 installs the skill but requires a separate `codex mcp add` command. That separately configured connection may not forward the package headers, so Anyshift can identify the Codex MCP and OAuth clients without claiming exact plugin attribution for those requests.
 
-On Cursor, install the local Agent Plugin package when you want package attribution by default.
-A URL-only `~/.cursor/mcp.json` entry still works for OAuth and tool use without those headers.
+On Cursor, the local Agent Plugin package sends package attribution headers by default.
 
 ## Resource identity
 
