@@ -40,6 +40,32 @@ For incident and deployment questions:
 3. match stable identifiers, namespaces, and timestamps;
 4. distinguish an observed correlated change from an established root cause.
 
+## Read one calendar day of cluster changes
+
+When the user supplies a qualified cluster name, send it directly to `get_recent_changes`. Convert
+the requested calendar day into a half-open RFC 3339 interval in the user's chosen timezone. For a
+UTC day, a sanitized preemption request shaped like the production workflow is:
+
+```json
+{
+  "cluster": "example-main-us-central1-prod",
+  "provider": "gcp",
+  "project": "example-front",
+  "region": "us-central1",
+  "type": "node_preempted",
+  "from": "2026-08-19T00:00:00Z",
+  "until": "2026-08-20T00:00:00Z",
+  "stats": "none",
+  "limit": 100
+}
+```
+
+Resolve first only when the cluster name is ambiguous or the server returns bounded candidates.
+If a candidate is selected, pass its stable `id` as `resourceId`, never as legacy `resource`. Do
+not fetch adjacent clusters for client-side filtering. Follow `nextCursor` only while `hasMore` is
+true, and describe the observed count as complete only after the final page. State the timezone,
+half-open evidence boundary, and returned event evidence limitation in the answer.
+
 ## Bounded query language
 
 `query_graph` accepts one constrained `SELECT` statement, not Cypher and not natural language.

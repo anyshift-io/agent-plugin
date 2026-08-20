@@ -52,7 +52,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.2.2
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.2.3
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://graph.anyshift.io/mcp
 ```
@@ -130,8 +130,7 @@ same-named resources:
 
 1. call `resolve_resource`;
 2. select the candidate with the intended resource type; and
-3. pass that candidate's stable `id` as the `resource` argument to subsequent tools or constrained
-   queries.
+3. pass that candidate's stable `id` as the `resourceId` argument to supported dedicated tools.
 
 An unqualified name-only query remains deterministic, but it can select a different same-named
 resource kind. Using the resolved stable identifier preserves the selected identity without placing

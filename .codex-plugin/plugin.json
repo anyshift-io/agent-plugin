@@ -1,6 +1,6 @@
 {
   "name": "agent-plugin",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Ground agent decisions in deterministic Anyshift production evidence.",
   "author": {
     "name": "Anyshift",
