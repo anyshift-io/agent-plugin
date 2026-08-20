@@ -78,8 +78,16 @@ unaffected; no unauthenticated request can read graph data.
 ### Cursor
 
 Cursor 3.15.6 or newer is recommended. Cursor supports Agent Plugins and remote Streamable HTTP MCP
-with OAuth. Install the portable Agent Plugin package so Cursor loads the skill and MCP
-configuration together:
+with OAuth.
+
+#### Cursor Marketplace
+
+One-click install from the Cursor Marketplace is coming. Until that lands, use the local Agent
+Plugin package below.
+
+#### Local Agent Plugin package
+
+Install the portable Agent Plugin package so Cursor loads the skill and MCP configuration together:
 
 ```bash
 git clone https://github.com/anyshift-io/agent-plugin.git \
@@ -100,7 +108,6 @@ rejects out-of-tree local plugin symlink targets and skips the package.
 
 #### Cursor caveats
 
-- Cursor Marketplace one-click install is not verified for this package yet.
 - Local plugin symlinks whose target is outside `~/.cursor/plugins/local` are rejected.
 - While unauthenticated, Cursor may expose a client-side `mcp_auth` helper alongside the Graph
   tools. That helper is not part of the Graph API tool surface.
