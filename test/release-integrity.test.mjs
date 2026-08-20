@@ -24,7 +24,7 @@ const valid = {
   lockVersion: "0.2.0",
   lockRootName: "agent-plugin",
   lockRootVersion: "0.2.0",
-  mcpServerName: "agent-plugin",
+  mcpServerName: "anyshift",
   attributionName: "agent-plugin",
   attributionVersion: "0.2.0",
   marketplaceName: "agent-plugin",
@@ -56,7 +56,6 @@ for (const field of [
   "packageName",
   "lockName",
   "lockRootName",
-  "mcpServerName",
   "attributionName",
   "marketplaceName",
 ]) {
@@ -66,6 +65,12 @@ for (const field of [
     assert.throws(() => verifyInternalConsistency(metadata), new RegExp(field));
   });
 }
+
+test("mcpServerName mismatch fails", () => {
+  const metadata = structuredClone(valid);
+  metadata.mcpServerName = "wrong";
+  assert.throws(() => verifyInternalConsistency(metadata), /mcpServerName/);
+});
 
 for (const field of [
   "codexVersion",
@@ -135,7 +140,7 @@ test("package validation accepts a fully consistent future version", async () =>
     value.packages[""].version = futureVersion;
   });
   await updateJson("mcp.json", value => {
-    value.mcpServers["agent-plugin"].headers["X-Anyshift-Agent-Plugin-Version"] = futureVersion;
+    value.mcpServers.anyshift.headers["X-Anyshift-Agent-Plugin-Version"] = futureVersion;
   });
   const readmePath = join(directory, "README.md");
   const readme = await readFile(readmePath, "utf8");
