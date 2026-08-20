@@ -24,7 +24,7 @@ const valid = {
   lockVersion: "0.2.0",
   lockRootName: "agent-plugin",
   lockRootVersion: "0.2.0",
-  mcpServerName: "anyshift",
+  mcpServerName: "Anyshift",
   attributionName: "agent-plugin",
   attributionVersion: "0.2.0",
   marketplaceName: "agent-plugin",
@@ -140,7 +140,7 @@ test("package validation accepts a fully consistent future version", async () =>
     value.packages[""].version = futureVersion;
   });
   await updateJson("mcp.json", value => {
-    value.mcpServers.anyshift.headers["X-Anyshift-Agent-Plugin-Version"] = futureVersion;
+    value.mcpServers.Anyshift.headers["X-Anyshift-Agent-Plugin-Version"] = futureVersion;
   });
   const readmePath = join(directory, "README.md");
   const readme = await readFile(readmePath, "utf8");

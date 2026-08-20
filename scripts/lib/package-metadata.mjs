@@ -71,8 +71,8 @@ export function verifyInternalConsistency(metadata) {
 
   assert.equal(
     metadata.mcpServerName,
-    "anyshift",
-    `mcpServerName ${metadata.mcpServerName} must be anyshift`,
+    "Anyshift",
+    `mcpServerName ${metadata.mcpServerName} must be Anyshift`,
   );
 
   for (const field of [
