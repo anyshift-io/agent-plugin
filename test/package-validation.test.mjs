@@ -23,6 +23,25 @@ function validatePackage(directory) {
   });
 }
 
+test("skill is a tool map and forbids RCA playbook framing", async () => {
+  const skill = await readFile(join(root, "skills/agent-plugin/SKILL.md"), "utf8");
+  const queryPatterns = await readFile(
+    join(root, "skills/agent-plugin/references/query-patterns.md"),
+    "utf8",
+  );
+
+  assert.match(skill, /## Evidence kinds → tools/);
+  assert.match(skill, /tool map only/i);
+  assert.match(skill, /the agent draws all conclusions/i);
+  assert.match(skill, /for Sentry alerts, conclude X/i);
+  assert.match(skill, /factual summary plus a bounded evidence excerpt/i);
+  assert.doesNotMatch(skill, /## Evidence workflow/);
+
+  assert.match(queryPatterns, /query_graph` → `failures`/);
+  assert.match(queryPatterns, /SELECT \* FROM failures/);
+  assert.doesNotMatch(queryPatterns, /## Correlate changes conservatively/);
+});
+
 test("skill documents the bounded one-call cluster change workflow", async () => {
   const skill = await readFile(join(root, "skills/agent-plugin/SKILL.md"), "utf8");
   const queryPatterns = await readFile(
