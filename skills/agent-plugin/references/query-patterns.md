@@ -15,7 +15,7 @@ diagnosis step list. Do not encode alert-specific conclusion recipes (for exampl
 | What could be reached if this changes or fails? | `get_blast_radius` | Bounded transitive reachability, not guaranteed failure |
 | What changed recently? | `get_recent_changes` | Observed time-windowed events |
 | What could this change affect operationally? | `get_operational_impact` | Reviewed directional impact edges |
-| Failure-class infrastructure events | `query_graph` → `failures` | No dedicated `get_failures` tool |
+| Rows in the `failures` table | `query_graph` → `failures` | No `get_failures` tool; use `get_recent_changes` when it covers the event type (e.g. `node_preempted`) |
 | Broader change / event timeline | `query_graph` → `events` (or `get_recent_changes` when it fits) | Constrained SELECT |
 | Other deterministic tables without a dedicated tool | `query_graph` | Constrained read-only query language |
 
