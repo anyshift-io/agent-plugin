@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   validate:
+    # Public repo: org Self-Hosted runner group has allows_public_repositories=false,
+    # so jobs must use GitHub-hosted runners or they stay queued forever.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
