@@ -56,11 +56,11 @@ async function rejectSymlinks(path = root) {
 for (const path of requiredFiles) assert.equal((await lstat(join(root, path))).isFile(), true, `missing ${path}`);
 await rejectSymlinks();
 
-const plugin = await loadJsonObject(join(root, "plugin.json"));
-const mcp = await loadJsonObject(join(root, "mcp.json"));
-const codexPlugin = await loadJsonObject(join(root, ".codex-plugin/plugin.json"));
-const marketplace = await loadJsonObject(join(root, ".agents/plugins/marketplace.json"));
-const openAiAgent = await loadYamlObject(join(root, openAiAgentPath));
+const plugin = await loadJsonObject(join(root, "plugin.json"), root);
+const mcp = await loadJsonObject(join(root, "mcp.json"), root);
+const codexPlugin = await loadJsonObject(join(root, ".codex-plugin/plugin.json"), root);
+const marketplace = await loadJsonObject(join(root, ".agents/plugins/marketplace.json"), root);
+const openAiAgent = await loadYamlObject(join(root, openAiAgentPath), root);
 validateCodexPlugin(codexPlugin);
 validateMarketplace(marketplace);
 validateOpenAiAgent(openAiAgent);
@@ -93,8 +93,8 @@ for (const name of Object.keys(server.headers)) {
   assert.doesNotMatch(name, /^(authorization|cookie|proxy-authorization|x-api-key)$/i);
 }
 assert.equal(codexPlugin.version, plugin.version, "Codex plugin version must match portable plugin version");
-const packageManifest = await loadJsonObject(join(root, "package.json"));
-const packageLock = await loadJsonObject(join(root, "package-lock.json"));
+const packageManifest = await loadJsonObject(join(root, "package.json"), root);
+const packageLock = await loadJsonObject(join(root, "package-lock.json"), root);
 assert.equal(packageManifest.version, plugin.version, "package version must match portable plugin version");
 assert.equal(packageLock.version, plugin.version, "lockfile version must match portable plugin version");
 assert.equal(packageLock.packages[""].version, plugin.version, "root lockfile package version must match portable plugin version");

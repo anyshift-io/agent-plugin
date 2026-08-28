@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  assertReadablePath,
   loadJsonObject,
   loadYamlObject,
   validateCodexPlugin,
@@ -17,9 +18,9 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 async function currentDocuments() {
   return {
-    codex: await loadJsonObject(join(root, ".codex-plugin/plugin.json")),
-    marketplace: await loadJsonObject(join(root, ".agents/plugins/marketplace.json")),
-    agent: await loadYamlObject(join(root, "skills/agent-plugin/agents/openai.yaml")),
+    codex: await loadJsonObject(join(root, ".codex-plugin/plugin.json"), root),
+    marketplace: await loadJsonObject(join(root, ".agents/plugins/marketplace.json"), root),
+    agent: await loadYamlObject(join(root, "skills/agent-plugin/agents/openai.yaml"), root),
   };
 }
 
@@ -93,8 +94,21 @@ test("malformed openai.yaml is rejected with its path", async () => {
   await writeFile(path, "interface: [", "utf8");
 
   try {
-    await assert.rejects(() => loadYamlObject(path), /openai\.yaml.*YAML/i);
+    await assert.rejects(() => loadYamlObject(path, directory), /openai\.yaml.*YAML/i);
   } finally {
     await rm(directory, { recursive: true });
   }
+});
+
+test("assertReadablePath rejects empty, non-string, null-byte, and escaping paths", () => {
+  assert.throws(() => assertReadablePath("", root), /path must be non-empty/);
+  assert.throws(() => assertReadablePath("   ", root), /path must be non-empty/);
+  assert.throws(() => assertReadablePath(null, root), /path must be a string/);
+  assert.throws(() => assertReadablePath("evil\0.json", root), /null bytes/);
+  assert.throws(() => assertReadablePath("/etc/passwd", root), /escapes allowed root/);
+  assert.throws(() => assertReadablePath(join(root, "..", "outside.json"), root), /escapes allowed root/);
+});
+
+test("loadJsonObject rejects null-byte paths before reading", async () => {
+  await assert.rejects(() => loadJsonObject("plugin\0.json", root), /null bytes/);
 });

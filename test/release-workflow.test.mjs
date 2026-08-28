@@ -20,7 +20,7 @@ function assertActionsArePinned(workflow) {
 }
 
 test("release workflow isolates read-only validation from publication", async () => {
-  const workflow = await loadYamlObject(join(root, ".github/workflows/release.yml"));
+  const workflow = await loadYamlObject(join(root, ".github/workflows/release.yml"), root);
 
   assert.ok(workflow.on.workflow_dispatch, "release must be manually dispatched");
   assert.equal(workflow.on.workflow_dispatch.inputs.tag.required, true);
@@ -50,7 +50,7 @@ test("release workflow isolates read-only validation from publication", async ()
 });
 
 test("validation workflow verifies every direct v-prefixed tag push", async () => {
-  const workflow = await loadYamlObject(join(root, ".github/workflows/validate.yml"));
+  const workflow = await loadYamlObject(join(root, ".github/workflows/validate.yml"), root);
 
   assert.deepEqual(workflow.on.push.tags, ["v*"]);
   const tagStep = workflow.jobs.validate.steps.find(step => step.run?.includes("npm run verify:release"));

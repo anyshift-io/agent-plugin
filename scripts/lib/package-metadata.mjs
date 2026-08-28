@@ -8,12 +8,12 @@ const TAG_SEMVER = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|
 
 export async function readPackageMetadata(root) {
   const [portable, codex, packageManifest, packageLock, mcp, marketplace, readme] = await Promise.all([
-    loadJsonObject(join(root, "plugin.json")),
-    loadJsonObject(join(root, ".codex-plugin/plugin.json")),
-    loadJsonObject(join(root, "package.json")),
-    loadJsonObject(join(root, "package-lock.json")),
-    loadJsonObject(join(root, "mcp.json")),
-    loadJsonObject(join(root, ".agents/plugins/marketplace.json")),
+    loadJsonObject(join(root, "plugin.json"), root),
+    loadJsonObject(join(root, ".codex-plugin/plugin.json"), root),
+    loadJsonObject(join(root, "package.json"), root),
+    loadJsonObject(join(root, "package-lock.json"), root),
+    loadJsonObject(join(root, "mcp.json"), root),
+    loadJsonObject(join(root, ".agents/plugins/marketplace.json"), root),
     readFile(join(root, "README.md"), "utf8"),
   ]);
 
