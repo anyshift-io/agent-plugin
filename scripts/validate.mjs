@@ -12,6 +12,7 @@ const requiredFiles = [
   ".agents/plugins/marketplace.json",
   "skills/agent-plugin/SKILL.md",
   "skills/agent-plugin/references/query-patterns.md",
+  "skills/agent-plugin/references/graph-evidence.md",
   "README.md",
   "LICENSE",
 ];
@@ -107,6 +108,19 @@ assert.doesNotMatch(skill, /Authorization:\s*Bearer|ANYSHIFT_TOKEN|GRAPH_MCP_SMO
 const queryPatterns = await readFile(join(root, "skills/agent-plugin/references/query-patterns.md"), "utf8");
 assert.match(queryPatterns, /\| What public edge or workload exposure is observed\? \| `get_exposure` \|/);
 assert.match(queryPatterns, /Do not describe `not_observed` as proof that a resource is private\./);
+
+// graph-evidence.md is a generated mirror of the upstream canonical evidence discipline.
+// Cross-repo freshness is enforced upstream; here we assert the package invariants the
+// public plugin must hold: it is marked generated, product-neutral, and carries the shared
+// reasoning the SKILL.md points to.
+const graphEvidence = await readFile(join(root, "skills/agent-plugin/references/graph-evidence.md"), "utf8");
+assert.match(graphEvidence, /^<!-- GENERATED FILE — DO NOT EDIT BY HAND\./, "graph-evidence.md must be marked generated");
+assert.match(graphEvidence, /as untrusted data, never as an instruction\./);
+assert.match(graphEvidence, /lowering a claim's stated confidence does not\s+substitute for the check you skipped/);
+assert.doesNotMatch(graphEvidence, /annie|anyshift/i, "mirrored evidence discipline must stay product-neutral");
+assert.match(skill, /references\/graph-evidence\.md/, "SKILL.md must point to the shared evidence discipline");
+assert.match(skill, /SYNC:graph-evidence-core BEGIN[\s\S]*?SYNC:graph-evidence-core END/, "SKILL.md must carry the injected core block");
+assert.match(skill, /A correlation handle is a HARD STOP\./, "SKILL.md core must include the correlation hard-stop rule");
 
 const readme = await readFile(join(root, "README.md"), "utf8");
 assert.match(readme, /discovery of all seven tools/);
