@@ -100,13 +100,30 @@ test("malformed openai.yaml is rejected with its path", async () => {
   }
 });
 
-test("assertReadablePath rejects empty, non-string, null-byte, and escaping paths", () => {
-  assert.throws(() => assertReadablePath("", root), /path must be non-empty/);
-  assert.throws(() => assertReadablePath("   ", root), /path must be non-empty/);
-  assert.throws(() => assertReadablePath(null, root), /path must be a string/);
-  assert.throws(() => assertReadablePath("evil\0.json", root), /null bytes/);
-  assert.throws(() => assertReadablePath("/etc/passwd", root), /escapes allowed root/);
-  assert.throws(() => assertReadablePath(join(root, "..", "outside.json"), root), /escapes allowed root/);
+test("assertReadablePath rejects empty, non-string, null-byte, and escaping paths", async () => {
+  await assert.rejects(() => assertReadablePath("", root), /path must be non-empty/);
+  await assert.rejects(() => assertReadablePath("   ", root), /path must be non-empty/);
+  await assert.rejects(() => assertReadablePath(null, root), /path must be a string/);
+  await assert.rejects(() => assertReadablePath("evil\0.json", root), /null bytes/);
+  await assert.rejects(() => assertReadablePath("/etc/passwd", root), /escapes allowed root/);
+  await assert.rejects(() => assertReadablePath(join(root, "..", "outside.json"), root), /escapes allowed root/);
+});
+
+test("assertReadablePath rejects symlink escapes outside the trusted root", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agent-plugin-symlink-"));
+  const outside = await mkdtemp(join(tmpdir(), "agent-plugin-outside-"));
+  const link = join(directory, "escape");
+  const secret = join(outside, "secret.json");
+  await writeFile(secret, '{"ok":true}', "utf8");
+
+  try {
+    const { symlink } = await import("node:fs/promises");
+    await symlink(outside, link);
+    await assert.rejects(() => assertReadablePath(join(link, "secret.json"), directory), /escapes allowed root/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
 });
 
 test("loadJsonObject rejects null-byte paths before reading", async () => {

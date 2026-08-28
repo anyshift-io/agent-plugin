@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 
 import { parse } from "yaml";
@@ -7,11 +7,20 @@ import { parse } from "yaml";
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const HEX_COLOR = /^#[0-9A-F]{6}$/i;
 
+function assertUnderRoot(resolved, resolvedRoot, path) {
+  const rootPrefix = resolvedRoot.endsWith(sep) ? resolvedRoot : `${resolvedRoot}${sep}`;
+  assert.ok(
+    resolved === resolvedRoot || resolved.startsWith(rootPrefix),
+    `path escapes allowed root: ${path}`,
+  );
+}
+
 /**
  * Reject attacker-controlled / malformed paths before any filesystem read.
- * Resolved paths must stay under the provided trusted root.
+ * Resolved (and realpath-canonicalized when the target exists) paths must stay
+ * under the provided trusted root so symlink escapes are rejected too.
  */
-export function assertReadablePath(path, root) {
+export async function assertReadablePath(path, root) {
   assert.equal(typeof path, "string", "path must be a string");
   assert.ok(path.length > 0 && path.trim().length > 0, "path must be non-empty");
   assert.equal(path.includes("\0"), false, "path must not contain null bytes");
@@ -19,13 +28,20 @@ export function assertReadablePath(path, root) {
   assert.ok(root.length > 0 && root.trim().length > 0, "root must be non-empty");
   assert.equal(root.includes("\0"), false, "root must not contain null bytes");
 
-  const resolvedRoot = resolve(root);
-  const resolved = resolve(path);
-  const rootPrefix = resolvedRoot.endsWith(sep) ? resolvedRoot : `${resolvedRoot}${sep}`;
-  assert.ok(
-    resolved === resolvedRoot || resolved.startsWith(rootPrefix),
-    `path escapes allowed root: ${path}`,
-  );
+  const resolvedRoot = await realpath(root);
+  const lexical = resolve(path);
+  assertUnderRoot(lexical, resolve(root), path);
+
+  let resolved;
+  try {
+    resolved = await realpath(path);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return lexical;
+    }
+    throw error;
+  }
+  assertUnderRoot(resolved, resolvedRoot, path);
   return resolved;
 }
 
@@ -65,7 +81,7 @@ function stringArray(value, label, { min = 0, max = Number.POSITIVE_INFINITY, ma
 }
 
 export async function loadJsonObject(path, root) {
-  const safePath = assertReadablePath(path, root);
+  const safePath = await assertReadablePath(path, root);
   let value;
   try {
     value = JSON.parse(await readFile(safePath, "utf8"));
@@ -76,7 +92,7 @@ export async function loadJsonObject(path, root) {
 }
 
 export async function loadYamlObject(path, root) {
-  const safePath = assertReadablePath(path, root);
+  const safePath = await assertReadablePath(path, root);
   let value;
   try {
     value = parse(await readFile(safePath, "utf8"));
