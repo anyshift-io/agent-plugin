@@ -126,6 +126,27 @@ test("assertReadablePath rejects symlink escapes outside the trusted root", asyn
   }
 });
 
+test("loadJsonObject refuses to follow a final-component symlink (O_NOFOLLOW)", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agent-plugin-nofollow-"));
+  const outside = await mkdtemp(join(tmpdir(), "agent-plugin-nofollow-out-"));
+  const target = join(outside, "secret.json");
+  const link = join(directory, "plugin.json");
+  await writeFile(target, '{"name":"escaped"}', "utf8");
+
+  try {
+    const { symlink, unlink } = await import("node:fs/promises");
+    // Create a regular in-root file so realpath containment passes, then replace with symlink.
+    await writeFile(link, '{"name":"ok"}', "utf8");
+    await assert.doesNotReject(() => loadJsonObject(link, directory));
+    await unlink(link);
+    await symlink(target, link);
+    await assert.rejects(() => loadJsonObject(link, directory), /ELOOP|escapes allowed root|symbolic link/i);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
 test("loadJsonObject rejects null-byte paths before reading", async () => {
   await assert.rejects(() => loadJsonObject("plugin\0.json", root), /null bytes/);
 });

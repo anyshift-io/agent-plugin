@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { open, realpath } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 
 import { parse } from "yaml";
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const HEX_COLOR = /^#[0-9A-F]{6}$/i;
+const READ_NOFOLLOW = constants.O_RDONLY | constants.O_NOFOLLOW;
 
 function assertUnderRoot(resolved, resolvedRoot, path) {
   const rootPrefix = resolvedRoot.endsWith(sep) ? resolvedRoot : `${resolvedRoot}${sep}`;
@@ -45,6 +47,25 @@ export async function assertReadablePath(path, root) {
   return resolved;
 }
 
+/** Open without following a final-component symlink, then read that same handle. */
+async function readTrustedFile(path, root) {
+  const safePath = await assertReadablePath(path, root);
+  const handle = await open(safePath, READ_NOFOLLOW);
+  try {
+    const resolvedRoot = await realpath(root);
+    let openedPath;
+    try {
+      openedPath = await realpath(`/proc/self/fd/${handle.fd}`);
+    } catch {
+      openedPath = await realpath(safePath);
+    }
+    assertUnderRoot(openedPath, resolvedRoot, path);
+    return { safePath: openedPath, content: await handle.readFile("utf8") };
+  } finally {
+    await handle.close();
+  }
+}
+
 function plainObject(value, label) {
   assert.ok(value && typeof value === "object" && !Array.isArray(value), `${label} must be an object`);
   return value;
@@ -81,10 +102,10 @@ function stringArray(value, label, { min = 0, max = Number.POSITIVE_INFINITY, ma
 }
 
 export async function loadJsonObject(path, root) {
-  const safePath = await assertReadablePath(path, root);
+  const { safePath, content } = await readTrustedFile(path, root);
   let value;
   try {
-    value = JSON.parse(await readFile(safePath, "utf8"));
+    value = JSON.parse(content);
   } catch (error) {
     throw new Error(`${safePath} must contain valid JSON: ${error.message}`, { cause: error });
   }
@@ -92,10 +113,10 @@ export async function loadJsonObject(path, root) {
 }
 
 export async function loadYamlObject(path, root) {
-  const safePath = await assertReadablePath(path, root);
+  const { safePath, content } = await readTrustedFile(path, root);
   let value;
   try {
-    value = parse(await readFile(safePath, "utf8"));
+    value = parse(content);
   } catch (error) {
     throw new Error(`${safePath} must contain valid YAML: ${error.message}`, { cause: error });
   }
