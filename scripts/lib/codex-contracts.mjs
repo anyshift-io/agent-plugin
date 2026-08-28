@@ -56,8 +56,11 @@ async function readTrustedFile(path, root) {
     let openedPath;
     try {
       openedPath = await realpath(`/proc/self/fd/${handle.fd}`);
-    } catch {
-      openedPath = await realpath(safePath);
+    } catch (error) {
+      throw new Error(
+        `unable to verify opened descriptor under root (requires /proc/self/fd): ${error.message}`,
+        { cause: error },
+      );
     }
     assertUnderRoot(openedPath, resolvedRoot, path);
     return { safePath: openedPath, content: await handle.readFile("utf8") };
