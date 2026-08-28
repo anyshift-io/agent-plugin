@@ -1,10 +1,71 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { open, realpath } from "node:fs/promises";
+import { resolve, sep } from "node:path";
 
 import { parse } from "yaml";
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const HEX_COLOR = /^#[0-9A-F]{6}$/i;
+const READ_NOFOLLOW = constants.O_RDONLY | constants.O_NOFOLLOW;
+
+function assertUnderRoot(resolved, resolvedRoot, path) {
+  const rootPrefix = resolvedRoot.endsWith(sep) ? resolvedRoot : `${resolvedRoot}${sep}`;
+  assert.ok(
+    resolved === resolvedRoot || resolved.startsWith(rootPrefix),
+    `path escapes allowed root: ${path}`,
+  );
+}
+
+/**
+ * Reject attacker-controlled / malformed paths before any filesystem read.
+ * Resolved (and realpath-canonicalized when the target exists) paths must stay
+ * under the provided trusted root so symlink escapes are rejected too.
+ */
+export async function assertReadablePath(path, root) {
+  assert.equal(typeof path, "string", "path must be a string");
+  assert.ok(path.length > 0 && path.trim().length > 0, "path must be non-empty");
+  assert.equal(path.includes("\0"), false, "path must not contain null bytes");
+  assert.equal(typeof root, "string", "root must be a string");
+  assert.ok(root.length > 0 && root.trim().length > 0, "root must be non-empty");
+  assert.equal(root.includes("\0"), false, "root must not contain null bytes");
+
+  const resolvedRoot = await realpath(root);
+  const lexical = resolve(path);
+  assertUnderRoot(lexical, resolve(root), path);
+
+  let resolved;
+  try {
+    resolved = await realpath(path);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return lexical;
+    }
+    throw error;
+  }
+  assertUnderRoot(resolved, resolvedRoot, path);
+  return resolved;
+}
+
+/** Open without following a final-component symlink, then read that same handle. */
+async function readTrustedFile(path, root) {
+  const safePath = await assertReadablePath(path, root);
+  const handle = await open(safePath, READ_NOFOLLOW);
+  try {
+    const resolvedRoot = await realpath(root);
+    let openedPath;
+    try {
+      openedPath = await realpath(`/proc/self/fd/${handle.fd}`);
+    } catch {
+      // Platforms without /proc: re-check the path string after O_NOFOLLOW open.
+      openedPath = await realpath(safePath);
+    }
+    assertUnderRoot(openedPath, resolvedRoot, path);
+    return { safePath: openedPath, content: await handle.readFile("utf8") };
+  } finally {
+    await handle.close();
+  }
+}
 
 function plainObject(value, label) {
   assert.ok(value && typeof value === "object" && !Array.isArray(value), `${label} must be an object`);
@@ -41,24 +102,26 @@ function stringArray(value, label, { min = 0, max = Number.POSITIVE_INFINITY, ma
   });
 }
 
-export async function loadJsonObject(path) {
+export async function loadJsonObject(path, root) {
+  const { safePath, content } = await readTrustedFile(path, root);
   let value;
   try {
-    value = JSON.parse(await readFile(path, "utf8"));
+    value = JSON.parse(content);
   } catch (error) {
-    throw new Error(`${path} must contain valid JSON: ${error.message}`, { cause: error });
+    throw new Error(`${safePath} must contain valid JSON: ${error.message}`, { cause: error });
   }
-  return plainObject(value, path);
+  return plainObject(value, safePath);
 }
 
-export async function loadYamlObject(path) {
+export async function loadYamlObject(path, root) {
+  const { safePath, content } = await readTrustedFile(path, root);
   let value;
   try {
-    value = parse(await readFile(path, "utf8"));
+    value = parse(content);
   } catch (error) {
-    throw new Error(`${path} must contain valid YAML: ${error.message}`, { cause: error });
+    throw new Error(`${safePath} must contain valid YAML: ${error.message}`, { cause: error });
   }
-  return plainObject(value, path);
+  return plainObject(value, safePath);
 }
 
 export function validateCodexPlugin(document) {

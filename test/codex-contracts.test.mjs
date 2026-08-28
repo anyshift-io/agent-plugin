@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  assertReadablePath,
   loadJsonObject,
   loadYamlObject,
   validateCodexPlugin,
@@ -17,9 +18,9 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 async function currentDocuments() {
   return {
-    codex: await loadJsonObject(join(root, ".codex-plugin/plugin.json")),
-    marketplace: await loadJsonObject(join(root, ".agents/plugins/marketplace.json")),
-    agent: await loadYamlObject(join(root, "skills/agent-plugin/agents/openai.yaml")),
+    codex: await loadJsonObject(join(root, ".codex-plugin/plugin.json"), root),
+    marketplace: await loadJsonObject(join(root, ".agents/plugins/marketplace.json"), root),
+    agent: await loadYamlObject(join(root, "skills/agent-plugin/agents/openai.yaml"), root),
   };
 }
 
@@ -93,8 +94,59 @@ test("malformed openai.yaml is rejected with its path", async () => {
   await writeFile(path, "interface: [", "utf8");
 
   try {
-    await assert.rejects(() => loadYamlObject(path), /openai\.yaml.*YAML/i);
+    await assert.rejects(() => loadYamlObject(path, directory), /openai\.yaml.*YAML/i);
   } finally {
     await rm(directory, { recursive: true });
   }
+});
+
+test("assertReadablePath rejects empty, non-string, null-byte, and escaping paths", async () => {
+  await assert.rejects(() => assertReadablePath("", root), /path must be non-empty/);
+  await assert.rejects(() => assertReadablePath("   ", root), /path must be non-empty/);
+  await assert.rejects(() => assertReadablePath(null, root), /path must be a string/);
+  await assert.rejects(() => assertReadablePath("evil\0.json", root), /null bytes/);
+  await assert.rejects(() => assertReadablePath("/etc/passwd", root), /escapes allowed root/);
+  await assert.rejects(() => assertReadablePath(join(root, "..", "outside.json"), root), /escapes allowed root/);
+});
+
+test("assertReadablePath rejects symlink escapes outside the trusted root", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agent-plugin-symlink-"));
+  const outside = await mkdtemp(join(tmpdir(), "agent-plugin-outside-"));
+  const link = join(directory, "escape");
+  const secret = join(outside, "secret.json");
+  await writeFile(secret, '{"ok":true}', "utf8");
+
+  try {
+    const { symlink } = await import("node:fs/promises");
+    await symlink(outside, link);
+    await assert.rejects(() => assertReadablePath(join(link, "secret.json"), directory), /escapes allowed root/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("loadJsonObject refuses to follow a final-component symlink (O_NOFOLLOW)", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "agent-plugin-nofollow-"));
+  const outside = await mkdtemp(join(tmpdir(), "agent-plugin-nofollow-out-"));
+  const target = join(outside, "secret.json");
+  const link = join(directory, "plugin.json");
+  await writeFile(target, '{"name":"escaped"}', "utf8");
+
+  try {
+    const { symlink, unlink } = await import("node:fs/promises");
+    // Create a regular in-root file so realpath containment passes, then replace with symlink.
+    await writeFile(link, '{"name":"ok"}', "utf8");
+    await assert.doesNotReject(() => loadJsonObject(link, directory));
+    await unlink(link);
+    await symlink(target, link);
+    await assert.rejects(() => loadJsonObject(link, directory), /ELOOP|escapes allowed root|symbolic link/i);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("loadJsonObject rejects null-byte paths before reading", async () => {
+  await assert.rejects(() => loadJsonObject("plugin\0.json", root), /null bytes/);
 });
