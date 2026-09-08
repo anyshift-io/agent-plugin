@@ -26,6 +26,7 @@ const requiredFiles = [
   "skills/agent-plugin/SKILL.md",
   openAiAgentPath,
   "skills/agent-plugin/references/query-patterns.md",
+  "skills/agent-plugin/references/recipes.md",
   "README.md",
   "LICENSE",
 ];
@@ -83,7 +84,7 @@ assert.equal("mcpServers" in codexPlugin, false, "Codex metadata must not duplic
 const server = mcp.mcpServers.Anyshift;
 assert.deepEqual(server, {
   type: "streamable-http",
-  url: "https://graph.anyshift.io/mcp",
+  url: "https://api.anyshift.io/mcp/graph",
   headers: {
     "X-Anyshift-Agent-Plugin": plugin.name,
     "X-Anyshift-Agent-Plugin-Version": plugin.version,
@@ -118,43 +119,48 @@ assert.match(skill, /## Evidence kinds → tools/, "skill must expose an evidenc
 assert.match(skill, /the agent draws all conclusions/i, "skill must state that the agent draws conclusions");
 assert.match(skill, /tool map only/i, "skill must declare tool-map (not RCA playbook) scope");
 assert.match(skill, /for Sentry alerts, conclude X/i, "skill must forbid alert-specific conclusion recipes");
-assert.match(skill, /`get_exposure` for bidirectional public-edge exposure paths, controls, and evidence gaps;/);
-assert.match(skill, /factual summary plus a bounded evidence excerpt/i, "skill must note Phase 1 text transport as data");
-assert.match(skill, /## Bounded cluster changes/, "bounded cluster change guidance is missing");
-assert.match(skill, /qualified cluster name directly/i, "bounded cluster change must use a qualified cluster directly");
-assert.match(skill, /one normal call when the name is unambiguous/);
-assert.match(skill, /stable `id` as `resourceId`, never as the legacy\n  `resource` argument/);
-assert.match(skill, /half-open RFC 3339 `from`\/`until`\n  interval in the chosen timezone/);
-assert.match(skill, /`stats: "none"` for bounded list requests/);
-assert.match(skill, /Follow `nextCursor` only while `hasMore` is true/);
-assert.match(skill, /count complete only after reaching the final page/);
-assert.match(skill, /Do not fetch adjacent clusters and discard them client-side/);
-assert.match(skill, /State the timezone and evidence boundary in the final answer/);
-assert.match(skill, /authenticated MCP grant owns tenant selection/);
-assert.match(skill, /provider-native `project` qualifier only narrows a resource inside that tenant/);
+assert.match(skill, /Call `describe_schema` FIRST/i, "skill must mandate describe_schema first");
+assert.match(skill, /`find_resources`/, "skill must map name resolution to find_resources");
+assert.match(skill, /`get_correlated_events`/, "skill must map incident chains to get_correlated_events");
+assert.match(skill, /`query_graph`/, "skill must expose the Cypher escape hatch");
+assert.match(skill, /datetime\('2026-08-09T00:00:00Z'\)/, "skill must show the datetime() event-ts mechanic");
+assert.match(skill, /matches ZERO rows without erroring/i, "skill must warn about the string-ts silent-zero trap");
+assert.match(skill, /Current state requires `:ALIVE`/i, "skill must document the :ALIVE current-state rule");
+assert.match(skill, /0 rows is NOT evidence of absence/i, "skill must state the zero-rows rule");
+assert.match(skill, /Absence of evidence is not proof of absence/i);
+assert.match(skill, /`list_projects` \+ `set_project`/, "skill must route tenant switching through the grant tools");
+assert.match(skill, /Tenant selection is owned by the authenticated MCP grant/i);
+assert.match(skill, /references\/recipes\.md/, "skill must link the recipes reference");
 assert.doesNotMatch(skill, /## Evidence workflow/, "skill must not ship a mandatory evidence-workflow checklist");
 assert.doesNotMatch(skill, /annie/i, "portable graph skill must not invoke Annie workflows");
 assert.doesNotMatch(skill, /Authorization:\s*Bearer|ANYSHIFT_TOKEN|GRAPH_MCP_SMOKE_TOKEN/i);
 
 const queryPatterns = await readFile(join(root, "skills/agent-plugin/references/query-patterns.md"), "utf8");
-assert.match(queryPatterns, /\| What public edge or workload exposure is observed\? \| `get_exposure` \|/);
-assert.match(queryPatterns, /query_graph` → `failures`/);
+assert.match(queryPatterns, /`describe_schema`/, "query patterns must open with describe_schema");
 assert.match(queryPatterns, /the agent draws all conclusions/i);
-assert.match(queryPatterns, /Do not describe `not_observed` as proof that a resource is private\./);
-assert.match(queryPatterns, /"cluster": "example-main-us-central1-prod"/);
-assert.match(queryPatterns, /"type": "node_preempted"/);
-assert.match(queryPatterns, /"from": "2026-08-19T00:00:00Z"/);
-assert.match(queryPatterns, /"until": "2026-08-20T00:00:00Z"/);
-assert.match(queryPatterns, /"stats": "none"/);
-assert.match(queryPatterns, /"limit": 100/);
-assert.match(queryPatterns, /complete only after the final page/);
+assert.match(queryPatterns, /hashedID/, "query patterns must anchor drill-downs on hashedIDs");
+assert.match(queryPatterns, /ungated event histogram/i, "query patterns must require the open histogram sweep");
+assert.match(queryPatterns, /An empty result is not proof of absence/i);
+assert.match(queryPatterns, /Do not claim causality from temporal proximity alone/i);
 assert.doesNotMatch(queryPatterns, /## Correlate changes conservatively/, "query patterns must not ship an RCA correlation checklist");
 
+const recipes = await readFile(join(root, "skills/agent-plugin/references/recipes.md"), "utf8");
+assert.match(recipes, /## Event histogram/i, "recipes must include the open-sweep histogram");
+assert.match(recipes, /BEFORE narrowing/i, "histogram recipe must precede narrowed theories");
+for (const heading of ["Public exposure trace", "Shortest path between two resources", "RBAC reach", "Kubernetes hygiene gaps", "Hotspots"]) {
+  assert.match(recipes, new RegExp(`## ${heading}`, "i"), `recipes must include the ${heading} recipe`);
+}
+assert.match(recipes, /Parenthesize the label disjunction/i, "hygiene recipe must warn about OR/AND precedence");
+assert.match(recipes, /means no \*stored\* route, not "private"/i, "exposure recipe must state that an empty route is not proof of privacy");
+assert.match(recipes, /NOT "will fail/, "blast-radius recipe must carry the reachability caveat");
+assert.match(recipes, /fan-in is exposure, not fragility/i, "spof recipe must carry its caveat");
+
 const readme = await readFile(join(root, "README.md"), "utf8");
-assert.match(readme, /discovery of all seven tools/);
-assert.match(readme, /`get_exposure` passed/);
-assert.match(readme, /stable `id` as the `resourceId` argument/);
-assert.doesNotMatch(readme, /stable `id` as the `resource` argument/);
+assert.match(readme, /discovery of all ten tools/);
+assert.match(readme, /Verification of v0\.3\.0 against production is pending/i);
+assert.match(readme, /one authenticated `query_graph` call/);
+assert.match(readme, /`hashedID` from `find_resources`/);
+
 assert.match(
   readme,
   new RegExp(`codex plugin marketplace add anyshift-io/agent-plugin --ref v${plugin.version.replaceAll(".", "\\.")}`),

@@ -34,59 +34,57 @@ test("skill is a tool map and forbids RCA playbook framing", async () => {
   assert.match(skill, /tool map only/i);
   assert.match(skill, /the agent draws all conclusions/i);
   assert.match(skill, /for Sentry alerts, conclude X/i);
-  assert.match(skill, /factual summary plus a bounded evidence excerpt/i);
   assert.doesNotMatch(skill, /## Evidence workflow/);
 
-  assert.match(queryPatterns, /query_graph` → `failures`/);
-  assert.match(queryPatterns, /SELECT \* FROM failures/);
+  assert.match(queryPatterns, /the agent draws all conclusions/i);
   assert.doesNotMatch(queryPatterns, /## Correlate changes conservatively/);
 });
 
-test("skill documents the bounded one-call cluster change workflow", async () => {
+test("skill documents the event-graph query mechanics", async () => {
   const skill = await readFile(join(root, "skills/agent-plugin/SKILL.md"), "utf8");
   const queryPatterns = await readFile(
     join(root, "skills/agent-plugin/references/query-patterns.md"),
     "utf8",
   );
-  const readme = await readFile(join(root, "README.md"), "utf8");
+  const recipes = await readFile(
+    join(root, "skills/agent-plugin/references/recipes.md"),
+    "utf8",
+  );
 
-  assert.match(skill, /qualified cluster name directly/i);
-  assert.match(skill, /one normal call when the name is unambiguous/i);
-  assert.match(skill, /resolve first only when.+ambiguous.+bounded candidates/is);
-  assert.match(skill, /stable `id`.+`resourceId`.+never.+legacy\s+`resource`/is);
-  assert.match(skill, /half-open RFC 3339 `from`\/`until`\s+interval.+chosen timezone/is);
-  assert.match(skill, /`stats: "none"`.+`nextCursor`.+`hasMore`.+final page/is);
-  assert.match(skill, /Do not fetch adjacent clusters.+discard them client-side/is);
-  assert.match(skill, /State the timezone and evidence boundary/i);
-  assert.match(skill, /authenticated MCP grant owns tenant selection/i);
-  assert.match(skill, /provider-native `project` qualifier only narrows a resource inside that tenant/i);
+  assert.match(skill, /Call `describe_schema` FIRST/i);
+  assert.match(skill, /datetime\('2026-08-09T00:00:00Z'\)/);
+  assert.match(skill, /matches ZERO rows without erroring/i);
+  assert.match(skill, /Current state requires `:ALIVE`/i);
+  assert.match(skill, /0 rows is NOT evidence of absence/i);
+  assert.match(skill, /Tenant selection is owned by the authenticated MCP grant/i);
+  assert.match(skill, /`list_projects` \+ `set_project`/);
 
-  assert.match(queryPatterns, /"cluster": "example-main-us-central1-prod"/);
-  assert.match(queryPatterns, /"type": "node_preempted"/);
-  assert.match(queryPatterns, /"from": "2026-08-19T00:00:00Z"/);
-  assert.match(queryPatterns, /"until": "2026-08-20T00:00:00Z"/);
-  assert.match(queryPatterns, /"stats": "none"/);
-  assert.match(queryPatterns, /"limit": 100/);
-  assert.match(queryPatterns, /complete only after.+final page/is);
+  assert.match(queryPatterns, /hashedID/);
+  assert.match(queryPatterns, /ungated event histogram/i);
+  assert.match(queryPatterns, /Do not claim causality from temporal proximity alone/i);
 
-  assert.match(readme, /stable `id` as the `resourceId` argument/);
-  assert.doesNotMatch(readme, /stable `id` as the `resource` argument/);
+  assert.match(recipes, /## Event histogram/i);
+  assert.match(recipes, /BEFORE narrowing/i);
+  assert.match(recipes, /fan-in is exposure, not fragility/i);
+  for (const heading of ["Public exposure trace", "Shortest path between two resources", "RBAC reach", "Kubernetes hygiene gaps", "Hotspots"]) {
+    assert.match(recipes, new RegExp(`## ${heading}`, "i"));
+  }
 });
 
-test("package validation rejects a skill without the bounded cluster workflow", async () => {
+test("package validation rejects a skill without the Cypher mechanics section", async () => {
   const directory = await copyPackage();
   const skillPath = join(directory, "skills/agent-plugin/SKILL.md");
   const skill = await readFile(skillPath, "utf8");
   await writeFile(
     skillPath,
-    skill.replace(/## Bounded cluster changes[\s\S]*?(?=\n## )/, ""),
+    skill.replace(/## Cypher mechanics that silently break queries[\s\S]*?(?=\n## )/, ""),
     "utf8",
   );
 
   try {
     const result = validatePackage(directory);
     assert.notEqual(result.status, 0, "validation must fail");
-    assert.match(`${result.stdout}\n${result.stderr}`, /bounded cluster change/i);
+    assert.match(`${result.stdout}\n${result.stderr}`, /datetime|ZERO rows|:ALIVE/i);
   } finally {
     await rm(directory, { recursive: true });
   }
