@@ -1,7 +1,7 @@
 {
   "name": "anyshift-graph",
   "description": "Ground agent decisions in live Anyshift event-graph evidence (10 MCP tools + skill).",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "Anyshift",
     "url": "https://anyshift.io"
