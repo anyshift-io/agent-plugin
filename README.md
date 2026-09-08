@@ -16,10 +16,10 @@ The portable package validates against Agent Plugins 1.0.0. Since v0.3.0 the pro
 serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
 `find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
 `get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
-v0.3.1 is pending its production verification on Claude Code (the backend release carrying the
-`get_recent_events` cluster filter); v0.3.0 was verified against production on Claude Code on
-2026-09-08 (see [Compatibility evidence](#compatibility-evidence)). The v0.2.x rows there were
-captured against the previous catalog surface and are retained with that boundary stated.
+v0.3.1 was verified against production on Claude Code on 2026-09-08 with backend v0.94.37
+(cluster-scoped `get_recent_events`: 29/29 rows on the requested cluster versus 5 clusters mixed
+in the unscoped page; see [Compatibility evidence](#compatibility-evidence)). The v0.2.x rows there
+were captured against the previous catalog surface and are retained with that boundary stated.
 
 ## MCP protocol compatibility
 
@@ -195,6 +195,7 @@ SHA.
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |
 |---|---:|---|---|---|---|---|
 | Claude Code on macOS (v0.3.0 surface) | 2.1.258, native plugin install (`/plugin marketplace add`, `/plugin install anyshift-graph@anyshift`) + `/mcp` OAuth | Pass | Pass | Ten event-graph tools discovered | `list_projects`, `describe_schema`, `query_graph` (SPOF recipe) passed | 2026-09-08 |
+| Claude Code on macOS (v0.3.1 surface, backend v0.94.37) | 2.1.258, same native install | Pass | Pass | Ten tools, `get_recent_events` exposes `cluster` | `find_resources` → `get_recent_events cluster=…` returned 29/29 rows on the requested cluster; unscoped page mixed 5 clusters | 2026-09-08 |
 | Codex CLI on macOS (v0.2.x surface) | 0.147.0, explicit `codex mcp add` | Pass | Pass | Seven catalog tools discovered | `get_exposure` passed | 2026-08-12 |
 | Cursor on Linux (v0.2.x surface) | 3.15.6, `~/.cursor/mcp.json` remote URL + OAuth | Pass | Pass | Six catalog tools discovered | `get_recent_changes` passed | 2026-08-11 |
 
