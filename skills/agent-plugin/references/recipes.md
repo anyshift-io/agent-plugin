@@ -53,8 +53,8 @@ operators) won't appear. Report as candidates, not verdicts.
 ## Co-tenancy (shared node)
 
 ```cypher
-MATCH (p:ALIVE)-[:SCHEDULED_ON]->(n:ALIVE)<-[:SCHEDULED_ON]-(other:ALIVE)
-WHERE p.name = $pod
+MATCH (p:ALIVE {hashedID: $pod})-[:SCHEDULED_ON]->(n:ALIVE)<-[:SCHEDULED_ON]-(other:ALIVE)
+WHERE other <> p
 RETURN n.name AS node, collect(DISTINCT other.name)[..50] AS cotenants
 ```
 
@@ -94,12 +94,14 @@ ORDER BY failures DESC LIMIT 20
 ## Blast-radius-style traversal (bounded)
 
 ```cypher
-MATCH p = (start:ALIVE {name: $name})<-[*1..3]-(dependent:ALIVE)
+MATCH p = (start:ALIVE {hashedID: $hashedID})<-[*1..3]-(dependent:ALIVE)
 RETURN dependent.name AS name, labels(dependent) AS kind, length(p) AS hops
 ORDER BY hops LIMIT 200
 ```
 
-Caveats (important): unqualified `[*1..3]` traverses EVERY stored edge type — including
+Caveats (important): seed by `hashedID` (from `find_resources`), never by name — the same
+name exists across namespaces, clusters and kinds, and a name seed merges every match into
+one fake blast radius. Unqualified `[*1..3]` traverses EVERY stored edge type — including
 weak/annotational ones. Reachability here means "connected in the graph", NOT "will fail
 if start fails". Constrain the relationship types to ones whose direction you understand
 (`describe_schema` lists them), keep depth ≤3, and report as potential reachability with
@@ -163,8 +165,9 @@ all invisible here. Say which layers you searched. Edge names differ by stack
 "How is A connected to B?" over topology edges only (event and history edges excluded).
 
 ```cypher
-MATCH (a:RESOURCE {hashedID: '<hashedID A>'}), (b:RESOURCE {hashedID: '<hashedID B>'})
+MATCH (a:RESOURCE:ALIVE {hashedID: '<hashedID A>'}), (b:RESOURCE:ALIVE {hashedID: '<hashedID B>'})
 MATCH p = shortestPath((a)-[:CONTROLS|MANAGES|SCHEDULES|SCHEDULED_ON|EXPOSES|ROUTES_TO|MOUNTS_CONFIGMAP|READS_ENV_FROM_CONFIGMAP|USES_SA|GRANTS_ROLE|BINDS_SUBJECT|SCALES|CLAIMS|BOUND_TO|CALLS_TO|USES_DATASTORE|PRODUCES_TO|CONSUMED_BY|RUNS_ON|CONTAINS|ATTACHES|USES*..5]-(b))
+WHERE all(n IN nodes(p) WHERE n:ALIVE)
 RETURN [n IN nodes(p) | coalesce(n.name, n.hashedID)] AS via,
        [r IN relationships(p) | type(r)] AS edges, length(p) AS hops
 ```
@@ -212,9 +215,9 @@ grants `get`, are not "cluster-admin" — the rules live on the role node's prop
 // Deployments / StatefulSets with no PodDisruptionBudget protecting any of their pods.
 // Walk UP from the (few) protected pods to their workloads, then subtract — expanding
 // every workload down to its pods is 5× slower on a large tenant.
-MATCH (:K8S_PDB:ALIVE)-[:PROTECTS]->(:K8S_POD:ALIVE)<-[:CONTROLS|MANAGES*1..2]-(pw:ALIVE)
+OPTIONAL MATCH (:K8S_PDB:ALIVE)-[:PROTECTS]->(:K8S_POD:ALIVE)<-[:CONTROLS|MANAGES*1..2]-(pw:ALIVE)
 WHERE pw:K8S_DEPLOYMENT OR pw:K8S_STATEFULSET
-WITH collect(DISTINCT pw) AS protected
+WITH collect(DISTINCT pw) AS protected  // [] when no PDB exists, so every workload is listed
 MATCH (w:ALIVE)
 WHERE (w:K8S_DEPLOYMENT OR w:K8S_STATEFULSET) AND NOT w IN protected
 RETURN w.clusterID AS cluster, w.namespace AS namespace, w.kind AS kind, w.name AS name
@@ -239,10 +242,10 @@ RETURN p.namespace AS namespace, count(*) AS podsWithoutPriority ORDER BY podsWi
 ```cypher
 // Namespaces whose pods are covered by no NetworkPolicy at all
 MATCH (p:K8S_POD:ALIVE)
-WITH p.namespace AS namespace, count(*) AS pods,
+WITH p.clusterID AS cluster, p.namespace AS namespace, count(*) AS pods,
      count(CASE WHEN EXISTS { (:K8S_NETWORKPOLICY:ALIVE)-[:APPLIES_TO]->(p) } THEN 1 END) AS covered
 WHERE covered = 0
-RETURN namespace, pods ORDER BY pods DESC LIMIT 50
+RETURN cluster, namespace, pods ORDER BY pods DESC LIMIT 50
 ```
 
 ```cypher
