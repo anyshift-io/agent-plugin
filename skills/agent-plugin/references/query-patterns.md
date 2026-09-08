@@ -27,7 +27,8 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
 
 ## Argument mechanics (retrieval only)
 
-- Pass `hashedID`s from `find_resources` results, never guessed ids.
+- Pass `hashedID`s from `find_resources` results, never guessed ids; in Cypher anchor them
+  as `(x:RESOURCE:ALIVE {hashedID: …})` so the index is used.
 - Turn calendar phrases such as "yesterday" into explicit RFC 3339 bounds wrapped in
   `datetime()` in the user's timezone, and state the timezone in the final answer.
 - `get_recent_events` root-only filtering hides non-root events by design — when you use

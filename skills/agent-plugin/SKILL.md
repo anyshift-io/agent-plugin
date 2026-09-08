@@ -49,6 +49,8 @@ hotspots).
   return (`(n:K8S_RESOURCE:ALIVE)`) — index-backed and faster than `deletedAt IS NULL`.
   Deleted nodes keep their relationships (history is preserved), so omitting `:ALIVE`
   resurrects edges to dead resources. Omit it only when you deliberately want history.
+- **Anchor by `:RESOURCE {hashedID: …}`.** `hashedID` is indexed on `RESOURCE`; a bare
+  `(x:ALIVE {hashedID: …})` or label-less anchor scans every live node (27 s vs 0.2 s).
 - **0 rows is NOT evidence of absence.** A valid-but-wrong predicate returns empty rather
   than erroring. Re-check labels against `describe_schema`, time bounds, and `:ALIVE`
   filters before concluding "nothing happened".

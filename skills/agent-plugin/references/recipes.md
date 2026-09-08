@@ -5,6 +5,10 @@ On this surface they are recipes: adapt labels/relationship types to what
 `describe_schema` returns for the project (vocabulary differs per stack), and keep the
 interpretation caveats — the recipe retrieves evidence, it does not prove impact.
 
+Anchor a known resource as `(x:RESOURCE:ALIVE {hashedID: …})`: `hashedID` is indexed on
+`RESOURCE`, so a bare `(x:ALIVE {hashedID: …})` or label-less `({hashedID: …})` anchor scans
+every live node instead (27 s versus 0.2 s on a large tenant).
+
 Every recipe: current-state queries match `:ALIVE`; event windows wrap bounds in
 `datetime()`; add `LIMIT`.
 
@@ -28,11 +32,13 @@ compare against an adjacent quiet window before calling it anomalous.
 Highly shared dependencies (config, identity, nodes) by dependent count.
 
 ```cypher
-MATCH (w:ALIVE)-[r]->(shared:ALIVE)
-WHERE type(r) IN ['MOUNTS_CONFIGMAP','USES_SERVICE_ACCOUNT','SCHEDULED_ON']  // per describe_schema
+MATCH (w:ALIVE)-[r:MOUNTS_CONFIGMAP|USES_SA|SCHEDULED_ON]->(shared:ALIVE)  // types per describe_schema
 RETURN labels(shared) AS kind, shared.name AS name, type(r) AS via, count(DISTINCT w) AS dependents
 ORDER BY dependents DESC LIMIT 25
 ```
+
+Keep the types in the pattern, not in a `WHERE type(r) IN […]` on an untyped `[r]`: the
+untyped form scans every edge (14 s vs 5 s on a large tenant).
 
 Caveat: fan-in is exposure, not fragility — a 200-pod node is normal; a 200-workload
 ConfigMap is a blast-radius concentrator.
@@ -53,7 +59,7 @@ operators) won't appear. Report as candidates, not verdicts.
 ## Co-tenancy (shared node)
 
 ```cypher
-MATCH (p:ALIVE {hashedID: $pod})-[:SCHEDULED_ON]->(n:ALIVE)<-[:SCHEDULED_ON]-(other:ALIVE)
+MATCH (p:RESOURCE:ALIVE {hashedID: $pod})-[:SCHEDULED_ON]->(n:ALIVE)<-[:SCHEDULED_ON]-(other:ALIVE)
 WHERE other <> p
 RETURN n.name AS node, collect(DISTINCT other.name)[..50] AS cotenants
 ```
@@ -61,8 +67,8 @@ RETURN n.name AS node, collect(DISTINCT other.name)[..50] AS cotenants
 ## Shared-config coupling
 
 ```cypher
-MATCH (a:ALIVE)-[:MOUNTS_CONFIGMAP]->(cm:ALIVE)<-[:MOUNTS_CONFIGMAP]-(b:ALIVE)
-WHERE a.name = $workload AND a <> b
+MATCH (a:RESOURCE:ALIVE {hashedID: $workload})-[:MOUNTS_CONFIGMAP]->(cm:ALIVE)<-[:MOUNTS_CONFIGMAP]-(b:ALIVE)
+WHERE a <> b
 RETURN cm.name AS configmap, collect(DISTINCT b.name) AS coupled
 ```
 
@@ -86,7 +92,7 @@ Caveat: temporal adjacency is a lead, not causation — say so when reporting.
 ```cypher
 MATCH (f:EVENT) WHERE f.ts > datetime('2026-09-01T14:00:00Z')
   AND f.type IN ['pod_oom_killed','pod_failed_scheduling','node_not_ready']
-MATCH (r {hashedID: f.targetHashedID})-[:SCHEDULED_ON|RUNS_ON*0..1]->(shared)
+MATCH (r:RESOURCE {hashedID: f.targetHashedID})-[:SCHEDULED_ON|RUNS_ON*0..1]->(shared)
 RETURN shared.name AS candidate, count(DISTINCT f) AS failures, collect(DISTINCT f.type) AS types
 ORDER BY failures DESC LIMIT 20
 ```
@@ -94,18 +100,19 @@ ORDER BY failures DESC LIMIT 20
 ## Blast-radius-style traversal (bounded)
 
 ```cypher
-MATCH p = (start:ALIVE {hashedID: $hashedID})<-[*1..3]-(dependent:ALIVE)
+MATCH p = (start:RESOURCE:ALIVE {hashedID: $hashedID})<-[:CONTROLS|MANAGES|SCHEDULED_ON|EXPOSES|ROUTES_TO|MOUNTS_CONFIGMAP|USES_SA|CLAIMS|CALLS_TO|USES_DATASTORE|RUNS_ON|ATTACHES|USES*1..3]-(dependent:ALIVE)
 RETURN dependent.name AS name, labels(dependent) AS kind, length(p) AS hops
 ORDER BY hops LIMIT 200
 ```
 
 Caveats (important): seed by `hashedID` (from `find_resources`), never by name — the same
 name exists across namespaces, clusters and kinds, and a name seed merges every match into
-one fake blast radius. Unqualified `[*1..3]` traverses EVERY stored edge type — including
-weak/annotational ones. Reachability here means "connected in the graph", NOT "will fail
-if start fails". Constrain the relationship types to ones whose direction you understand
-(`describe_schema` lists them), keep depth ≤3, and report as potential reachability with
-the edge types named.
+one fake blast radius. Keep the relationship list explicit (take it from
+`describe_schema`): an unqualified `[*1..3]` traverses EVERY stored edge type, including
+weak/annotational ones, and from a hub such as a node it does not finish (timed out at
+130 s on a large tenant; the typed form returns in 0.2 s). Reachability here means
+"connected in the graph", NOT "will fail if start fails"; keep depth ≤3 and report as
+potential reachability with the edge types named.
 
 ## Correlated incident chain
 
@@ -147,7 +154,7 @@ need the full picture.
 Reverse, from a workload ("is this reachable from the internet?"):
 
 ```cypher
-MATCH (w:ALIVE {hashedID: '<workload hashedID>'})
+MATCH (w:RESOURCE:ALIVE {hashedID: '<workload hashedID>'})
 MATCH (w)-[:CONTROLS|MANAGES*1..2]->(p:K8S_POD:ALIVE)<-[:EXPOSES]-(svc:K8S_SERVICE:ALIVE)
 OPTIONAL MATCH (ing:K8S_INGRESS:ALIVE)-[:ROUTES_TO]->(svc)
 OPTIONAL MATCH (h:CLOUDFLARE_HOSTNAME:ALIVE)-[:FRONTS|PROXIES_TO|ROUTES_THROUGH]->(ing)
