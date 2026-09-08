@@ -16,9 +16,10 @@ The portable package validates against Agent Plugins 1.0.0. Since v0.3.0 the pro
 serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
 `find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
 `get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
-v0.3.0 was verified against production on Claude Code before its release (see
-[Compatibility evidence](#compatibility-evidence)); the v0.2.x rows there were captured against the
-previous catalog surface and are retained with that boundary stated.
+v0.3.1 is pending its production verification on Claude Code (the backend release carrying the
+`get_recent_events` cluster filter); v0.3.0 was verified against production on Claude Code on
+2026-09-08 (see [Compatibility evidence](#compatibility-evidence)). The v0.2.x rows there were
+captured against the previous catalog surface and are retained with that boundary stated.
 
 ## MCP protocol compatibility
 

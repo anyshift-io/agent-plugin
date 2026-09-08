@@ -146,7 +146,9 @@ test("package validation accepts a fully consistent future version", async () =>
   const readme = await readFile(readmePath, "utf8");
   await writeFile(
     readmePath,
-    readme.replace(`--ref v${current.portableVersion}`, `--ref v${futureVersion}`),
+    readme
+      .replace(`--ref v${current.portableVersion}`, `--ref v${futureVersion}`)
+      .replace(`v${current.portableVersion} was verified against production`, `v${futureVersion} was verified against production`),
     "utf8",
   );
 

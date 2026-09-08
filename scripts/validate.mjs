@@ -157,7 +157,11 @@ assert.match(recipes, /fan-in is exposure, not fragility/i, "spof recipe must ca
 
 const readme = await readFile(join(root, "README.md"), "utf8");
 assert.match(readme, /discovery of all ten tools/);
-assert.match(readme, /v0\.3\.0 was verified against production on Claude Code/i);
+assert.match(
+  readme,
+  new RegExp(`v${plugin.version.replaceAll(".", "\\.")} was verified against production on Claude Code`, "i"),
+  "README must record the production verification of the current package version",
+);
 assert.match(readme, /one authenticated `query_graph` call/);
 assert.match(readme, /`hashedID` from `find_resources`/);
 
