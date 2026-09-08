@@ -60,6 +60,7 @@ Codex 0.147.0 or newer is recommended. Install the latest verified release:
 codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.0
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
+codex mcp login Anyshift
 ```
 
 To test unreleased development changes instead, register `main` as an edge marketplace source:
@@ -71,9 +72,9 @@ codex plugin marketplace add anyshift-io/agent-plugin --ref main
 The stable install command is version-pinned deliberately. Each release updates it to the newly
 verified tag; package validation fails when the README version falls behind the manifests.
 
-The final command is required by Codex CLI 0.147.0 because its plugin installer does not yet launch
-OAuth for a plugin-owned remote MCP server. It opens the browser OAuth flow; select the Anyshift
-project the plugin may read. Start a new Codex thread after installation so the skill and MCP tools
+The last two commands are required by Codex CLI 0.147.0 because its plugin installer does not yet
+launch OAuth for a plugin-owned remote MCP server: `codex mcp add` registers the endpoint and
+`codex mcp login` opens the browser OAuth flow; select the Anyshift project the plugin may read. Start a new Codex thread after installation so the skill and MCP tools
 are loaded together.
 
 Codex CLI 0.147.0 may also log an `Auth required` warning for the unauthenticated portable MCP
