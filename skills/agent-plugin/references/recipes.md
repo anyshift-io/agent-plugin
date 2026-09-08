@@ -281,6 +281,29 @@ project has no data for that kind, which is not the same finding. Property names
 (`replicas`, `storageClass`, `image`) are per-source: confirm with `get_resource_details`
 on one node first.
 
+## Events scoped to one cluster (or namespace)
+
+"What happened in cluster X yesterday?" on a multi-cluster project must never be answered
+from an unscoped page: the same event types fire in every cluster and the count would mix
+them. `get_recent_events` takes `cluster` (exact `clusterID`, index-backed) and returns
+`clusterID` / `clusterName` on every row; the Cypher form adds a namespace or a set of types:
+
+```cypher
+MATCH (e:EVENT)
+WHERE e.clusterID = $clusterID                     // exact id from find_resources / get_resource_details
+  AND e.ts >= datetime('2026-09-07T00:00:00Z') AND e.ts < datetime('2026-09-08T00:00:00Z')
+  AND e.type IN ['node_preempted']                 // per describe_schema
+RETURN e.ts AS ts, e.type AS type, e.targetKind AS kind, e.targetNamespace AS namespace,
+       e.targetName AS name, e.summary AS summary
+ORDER BY e.ts DESC LIMIT 200
+```
+
+Both forms seek the `(clusterID, ts)` index (0.2 s on a large tenant against 5 s and a
+capped page for the unscoped call). Get the `clusterID` from a resource row first: GKE ids
+are full paths (`projects/<p>/locations/<l>/clusters/<name>`), so a `CONTAINS 'name'` match
+walks the index range for every cluster; use the exact value. Report the window in the
+user's timezone and say the count is for that cluster only.
+
 ## Hotspots (noisiest resources in a window)
 
 Which resources changed the most, by event type — churn concentrates on a few targets.

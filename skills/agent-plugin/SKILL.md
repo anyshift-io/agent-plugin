@@ -26,7 +26,7 @@ and is the authoritative reference for `query_graph` Cypher. Do not guess labels
 | Ambiguous human name → candidates / stable id | `find_resources` | Ranked resources with `hashedID`s (name, identifiers, labels; substring-tolerant) |
 | One resource in full | `get_resource_details` | Safe properties + bounded relationships for a `hashedID` |
 | Change/event history of specific resources | `get_resource_events` | Time-bounded events for one or more `hashedID`s |
-| What happened project-wide in a window | `get_recent_events` | Windowed event feed; supports root-cause-only filtering |
+| What happened project-wide, or in one cluster, in a window | `get_recent_events` | Windowed event feed; `cluster` scopes one clusterID (index-backed), root-cause-only filtering; rows carry clusterID |
 | A correlated incident chain | `get_correlated_events` | The full event group for a `correlation_id` |
 | Graph neighborhood of a resource | `get_related` | Topology neighbours (fair per-type sample) + a NEIGHBOURHOOD SUMMARY with exact per-type edge counts; event edges counted, not listed |
 | Anything the tools above don't cover | `query_graph` | One read-only Cypher statement over the project's event graph |

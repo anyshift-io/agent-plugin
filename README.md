@@ -12,13 +12,13 @@ collect consent for one Anyshift project, and store credentials themselves.
 
 Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/agent-plugin/releases),
 and each package release remains gated on production verification of its matching Graph API support.
-The portable package validates against Agent Plugins 1.0.0. As of v0.3.0 the production endpoint
+The portable package validates against Agent Plugins 1.0.0. Since v0.3.0 the production endpoint
 serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
 `find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
 `get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
-Verification of v0.3.0 against production is pending and gates its release; the recorded
-[Compatibility evidence](#compatibility-evidence) below was captured against the previous catalog
-surface (v0.2.x) and is retained with that boundary stated.
+v0.3.0 was verified against production on Claude Code before its release (see
+[Compatibility evidence](#compatibility-evidence)); the v0.2.x rows there were captured against the
+previous catalog surface and are retained with that boundary stated.
 
 ## MCP protocol compatibility
 
@@ -57,7 +57,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.0
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.1
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
 codex mcp login Anyshift
@@ -193,12 +193,13 @@ SHA.
 
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |
 |---|---:|---|---|---|---|---|
+| Claude Code on macOS (v0.3.0 surface) | 2.1.258, native plugin install (`/plugin marketplace add`, `/plugin install anyshift-graph@anyshift`) + `/mcp` OAuth | Pass | Pass | Ten event-graph tools discovered | `list_projects`, `describe_schema`, `query_graph` (SPOF recipe) passed | 2026-09-08 |
 | Codex CLI on macOS (v0.2.x surface) | 0.147.0, explicit `codex mcp add` | Pass | Pass | Seven catalog tools discovered | `get_exposure` passed | 2026-08-12 |
 | Cursor on Linux (v0.2.x surface) | 3.15.6, `~/.cursor/mcp.json` remote URL + OAuth | Pass | Pass | Six catalog tools discovered | `get_recent_changes` passed | 2026-08-11 |
 
-Both rows were captured against the previous catalog tool surface and are retained as transport/
-OAuth evidence only. No client has yet been verified against the v0.3.0 event-graph surface —
-each requires a fresh recorded check (client version, OAuth discovery, initialization, discovery
+The v0.2.x rows were captured against the previous catalog tool surface and are retained as
+transport/OAuth evidence only. Clients other than Claude Code have not yet been verified against the
+event-graph surface — each requires a fresh recorded check (client version, OAuth discovery, initialization, discovery
 of all ten tools, one authenticated `query_graph` call) before its row is upgraded. Tokens, OAuth client identifiers, project identifiers, and customer resource
 names are intentionally excluded from this record.
 
