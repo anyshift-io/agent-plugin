@@ -157,7 +157,7 @@ assert.match(recipes, /fan-in is exposure, not fragility/i, "spof recipe must ca
 
 const readme = await readFile(join(root, "README.md"), "utf8");
 assert.match(readme, /discovery of all ten tools/);
-assert.match(readme, /Verification of v0\.3\.0 against production is pending/i);
+assert.match(readme, /v0\.3\.0 was verified against production on Claude Code/i);
 assert.match(readme, /one authenticated `query_graph` call/);
 assert.match(readme, /`hashedID` from `find_resources`/);
 
