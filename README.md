@@ -12,14 +12,17 @@ collect consent for one Anyshift project, and store credentials themselves.
 
 Published versions are listed in [GitHub Releases](https://github.com/anyshift-io/agent-plugin/releases),
 and each package release remains gated on production verification of its matching Graph API support.
-The portable package validates against Agent Plugins 1.0.0, and the production endpoint has passed
-OAuth discovery, MCP connection, discovery of all seven tools, and authenticated read-only calls
-from Codex CLI 0.147.0. Cursor 3.15.6 was verified against the preceding six-tool surface. See
-[Compatibility evidence](#compatibility-evidence) for the precise boundary of each claim.
+The portable package validates against Agent Plugins 1.0.0. As of v0.3.0 the production endpoint
+serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
+`find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
+`get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
+Verification of v0.3.0 against production is pending and gates its release; the recorded
+[Compatibility evidence](#compatibility-evidence) below was captured against the previous catalog
+surface (v0.2.x) and is retained with that boundary stated.
 
 ## MCP protocol compatibility
 
-The production endpoint at `https://graph.anyshift.io/mcp` supports the stateless Streamable HTTP
+The production endpoint at `https://api.anyshift.io/mcp/graph` supports the stateless Streamable HTTP
 transport defined by MCP `2026-07-28`. Modern requests are self-contained and carry the negotiated
 protocol version, client metadata, method, and tool name on every request. The endpoint also retains
 legacy MCP compatibility through `2025-11-25` for clients that still use initialization negotiation.
@@ -30,13 +33,15 @@ to one user-selected Anyshift project.
 
 ## Capabilities
 
-- resolve ambiguous infrastructure resources;
-- trace bidirectional public-edge exposure paths, controls, and explicit evidence gaps;
-- inspect direct dependencies and bounded transitive blast radius;
-- correlate recent changes with topology;
-- assess evidence-backed operational impact; and
-- use the constrained Graph query language for deterministic capabilities without a dedicated
-  tool.
+- discover the project's live graph vocabulary (`describe_schema`);
+- resolve ambiguous infrastructure resources to stable identifiers;
+- inspect a resource's properties, relationships, and change-event history;
+- sweep windowed project-wide events and reconstruct correlated incident chains;
+- traverse the graph neighborhood of any resource; and
+- run bounded read-only Cypher for any analysis without a dedicated tool, including the
+  named recipes in `skills/agent-plugin/references/recipes.md` (event histograms, SPOF
+  fan-in, orphans, co-tenancy, deploy-impact, bounded blast radius, public exposure
+  trace, shortest path, RBAC reach, Kubernetes hygiene gaps, hotspots).
 
 This plugin supplies production graph evidence to an agent already doing a task. It is not an
 autonomous SRE agent and does not contain an incident-response loop.
@@ -52,9 +57,9 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.2.3
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.0
 codex plugin add agent-plugin@anyshift
-codex mcp add Anyshift --url https://graph.anyshift.io/mcp
+codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
 ```
 
 To test unreleased development changes instead, register `main` as an edge marketplace source:
@@ -128,13 +133,29 @@ Graph resource names are not globally unique. For example, one deployment name c
 Terraform `STATE_RESOURCE` and the runtime `ECS_SERVICE` it manages. For short, overloaded, or
 same-named resources:
 
-1. call `resolve_resource`;
+1. call `find_resources`;
 2. select the candidate with the intended resource type; and
-3. pass that candidate's stable `id` as the `resourceId` argument to supported dedicated tools.
+3. pass that candidate's `hashedID` from `find_resources` to the drill-down tools
+   (`get_resource_details`, `get_resource_events`, `get_related`).
 
 An unqualified name-only query remains deterministic, but it can select a different same-named
 resource kind. Using the resolved stable identifier preserves the selected identity without placing
 project IDs, database names, or credentials in tool arguments.
+
+## Claude Code
+
+Install natively through the plugin manager (bundles the MCP server and the skill in one step):
+
+```
+/plugin marketplace add anyshift-io/agent-plugin
+/plugin install anyshift-graph@anyshift
+```
+
+Then run `/mcp`, pick `plugin:anyshift-graph:Anyshift` and choose **Authenticate** (or, from a
+shell, `claude mcp login plugin:anyshift-graph:Anyshift`): sign in and select the project the agent
+may read. The skill is available as `/anyshift-graph:agent-plugin` and is also picked up
+automatically. The manual clone + symlink + `claude mcp add` flow documented at docs.anyshift.io
+keeps working, but does not receive managed updates.
 
 ## Validate
 
@@ -171,14 +192,13 @@ SHA.
 
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |
 |---|---:|---|---|---|---|---|
-| Codex CLI on macOS | 0.147.0, explicit `codex mcp add` | Pass | Pass | Seven tools discovered | `get_exposure` passed | 2026-08-12 |
-| Cursor on Linux | 3.15.6, `~/.cursor/mcp.json` remote URL + OAuth | Pass | Pass | Six tools discovered | `get_recent_changes` passed | 2026-08-11 |
+| Codex CLI on macOS (v0.2.x surface) | 0.147.0, explicit `codex mcp add` | Pass | Pass | Seven catalog tools discovered | `get_exposure` passed | 2026-08-12 |
+| Cursor on Linux (v0.2.x surface) | 3.15.6, `~/.cursor/mcp.json` remote URL + OAuth | Pass | Pass | Six catalog tools discovered | `get_recent_changes` passed | 2026-08-11 |
 
-The current verified Codex tools are `resolve_resource`, `get_exposure`, `get_dependencies`,
-`get_blast_radius`, `get_recent_changes`, `get_operational_impact`, and `query_graph`. The
-authenticated calls returned structured production evidence with current evidence timestamps.
-Cursor verification predates `get_exposure`; its row is intentionally not upgraded without a new
-client-specific check. Tokens, OAuth client identifiers, project identifiers, and customer resource
+Both rows were captured against the previous catalog tool surface and are retained as transport/
+OAuth evidence only. No client has yet been verified against the v0.3.0 event-graph surface —
+each requires a fresh recorded check (client version, OAuth discovery, initialization, discovery
+of all ten tools, one authenticated `query_graph` call) before its row is upgraded. Tokens, OAuth client identifiers, project identifiers, and customer resource
 names are intentionally excluded from this record.
 
 VS Code, GitHub, Claude, and other compatible clients remain unverified until their exact client

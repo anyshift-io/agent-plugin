@@ -1,0 +1,15 @@
+{
+  "name": "anyshift",
+  "owner": {
+    "name": "Anyshift",
+    "url": "https://anyshift.io"
+  },
+  "plugins": [
+    {
+      "name": "anyshift-graph",
+      "source": "./",
+      "description": "Ground agent decisions in live Anyshift event-graph evidence (10 MCP tools + skill)."
+    }
+  ],
+  "description": "Anyshift's agent plugin marketplace: live event-graph production evidence for coding agents."
+}
