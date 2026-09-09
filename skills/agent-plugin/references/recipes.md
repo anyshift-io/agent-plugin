@@ -190,13 +190,22 @@ WHERE r.cidr_ipv4 = '0.0.0.0/0' OR r.cidr_ipv6 = '::/0'
 OPTIONAL MATCH (g)<-[:ATTACHES|USES|CONFIGURES]-(t:ALIVE)
 WHERE t:EC2_INSTANCE OR t:EC2_NETWORKINTERFACE OR t:RDS_DB
    OR t:ELASTICLOADBALANCING_LOADBALANCER OR t:LAMBDA_FUNCTION
-RETURN g.group_name AS securityGroup, g.clusterName AS account,
+RETURN g.group_id AS securityGroupId, g.group_name AS securityGroup,
+       g.vpc_id AS vpc, g.clusterName AS account,
        r.ip_protocol AS proto, r.from_port AS fromPort, r.to_port AS toPort,
        coalesce(r.cidr_ipv4, r.cidr_ipv6) AS openTo, r.description AS ruleDescription,
        count(DISTINCT t) AS attachedCount,
        collect(DISTINCT coalesce(t.name, t.hashedID))[0..5] AS attachedTo
 ORDER BY attachedCount DESC, securityGroup LIMIT 50
 ```
+
+**Keep `group_id` in the RETURN.** Group names are not unique — every VPC has its own
+`default`, and an account with 21 VPCs has 21 groups called `default` whose all-traffic
+rules are byte-identical. Cypher groups on the returned columns, so dropping the id merges
+them into one row and pools their attachments: measured on a real account, 41 rows became
+56 once the id was returned, and a single `default` row claiming 5 attachments turned out to
+be 16 distinct groups, 14 of them attached to nothing. That merge hides exactly the finding
+below.
 
 **Direction is not modelled — do not report these as "open to the internet".** The graph
 stores no ingress/egress flag on a rule (no `is_egress`, no distinct edge), so an outbound
