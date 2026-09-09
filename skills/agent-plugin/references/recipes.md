@@ -187,16 +187,24 @@ the `snake_case` rule bites hardest.
 ```cypher
 MATCH (g:EC2_SECURITYGROUP:ALIVE)-[:CONFIGURES]->(r:EC2_SECURITYGROUPRULE:ALIVE)
 WHERE r.cidr_ipv4 = '0.0.0.0/0' OR r.cidr_ipv6 = '::/0'
+// Direction comes from the Terraform-state layer, which models ingress and egress
+// as separate resource types. Rules AWS created outside Terraform have no state
+// node and stay 'unknown'.
+OPTIONAL MATCH (st)-[:MANAGES]->(r)
+WHERE st:AWS_VPC_SECURITY_GROUP_INGRESS_RULE OR st:AWS_VPC_SECURITY_GROUP_EGRESS_RULE
 OPTIONAL MATCH (g)<-[:ATTACHES|USES|CONFIGURES]-(t:ALIVE)
 WHERE t:EC2_INSTANCE OR t:EC2_NETWORKINTERFACE OR t:RDS_DB
    OR t:ELASTICLOADBALANCING_LOADBALANCER OR t:LAMBDA_FUNCTION
-RETURN g.group_id AS securityGroupId, g.group_name AS securityGroup,
+RETURN CASE WHEN st:AWS_VPC_SECURITY_GROUP_INGRESS_RULE THEN 'ingress'
+            WHEN st:AWS_VPC_SECURITY_GROUP_EGRESS_RULE  THEN 'egress'
+            ELSE 'unknown' END AS direction,
+       g.group_id AS securityGroupId, g.group_name AS securityGroup,
        g.vpc_id AS vpc, g.clusterName AS account,
        r.ip_protocol AS proto, r.from_port AS fromPort, r.to_port AS toPort,
        coalesce(r.cidr_ipv4, r.cidr_ipv6) AS openTo, r.description AS ruleDescription,
        count(DISTINCT t) AS attachedCount,
        collect(DISTINCT coalesce(t.name, t.hashedID))[0..5] AS attachedTo
-ORDER BY attachedCount DESC, securityGroup LIMIT 50
+ORDER BY direction, attachedCount DESC, securityGroup LIMIT 50
 ```
 
 **Keep `group_id` in the RETURN.** Group names are not unique — every VPC has its own
@@ -207,21 +215,28 @@ them into one row and pools their attachments: measured on a real account, 41 ro
 be 16 distinct groups, 14 of them attached to nothing. That merge hides exactly the finding
 below.
 
-**Direction is not modelled — do not report these as "open to the internet".** The graph
-stores no ingress/egress flag on a rule (no `is_egress`, no distinct edge), so an outbound
-rule and an inbound one are indistinguishable by structure, and most `0.0.0.0/0` rules in a
-normal account are egress. Two signals separate them, neither authoritative:
+**Only `direction = 'ingress'` is exposure.** The cloud-scanned rule itself carries no
+ingress/egress flag, which is why the join above reaches for the Terraform-state layer:
+there the two are distinct resource types (`aws_vpc_security_group_ingress_rule` and
+`..._egress_rule`), so a state-managed rule resolves definitively. Most `0.0.0.0/0` rules in
+a normal account are egress — measured on a real account, 63 wide-open rules were 14
+ingress, 25 egress and 24 unknown.
+
+`direction = 'unknown'` means the rule has no Terraform-state node, not that it is inbound.
+Console-created rules and anything managed outside Terraform land here, and they must be
+resolved before being reported either way. Two non-authoritative signals help triage them,
+and both are worth stating as unconfirmed:
 
 - `ruleDescription` usually says so outright (`all outbound via NAT Gateway`,
   `Allow all outbound traffic`, `HTTPS to internet` are egress; `HTTPS from production
   platform services` is ingress).
-- `proto = '-1'` with `fromPort = -1` is the AWS "all traffic" rule, which is the default
-  egress rule on almost every group.
+- `proto = '-1'` with `fromPort = -1` is the AWS "all traffic" rule, the default egress rule
+  on almost every group.
 
-Report the group and what it is attached to, say that direction is unverified, and confirm
-inbound exposure in AWS (`aws ec2 describe-security-group-rules --query "…[?IsEgress==\`false\`]"`)
-before calling anything exposed. `attachedCount = 0` is its own finding: a permissive group
-attached to nothing admits no traffic today, but it is a live misconfiguration.
+Confirm an unknown-direction rule in AWS before calling anything exposed:
+`aws ec2 describe-security-group-rules --query "SecurityGroupRules[?IsEgress==\`false\`]"`.
+`attachedCount = 0` is its own finding: a permissive group attached to nothing admits no
+traffic today, but it is a live misconfiguration.
 
 ## Shortest path between two resources
 
