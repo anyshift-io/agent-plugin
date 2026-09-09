@@ -223,9 +223,11 @@ a normal account are egress — measured on a real account, 63 wide-open rules w
 ingress, 25 egress and 24 unknown.
 
 `direction = 'unknown'` means the rule has no Terraform-state node, not that it is inbound.
-Console-created rules and anything managed outside Terraform land here, and they must be
-resolved before being reported either way. Two non-authoritative signals help triage them,
-and both are worth stating as unconfirmed:
+**Most projects have no Terraform integration at all — there every row is `unknown`, and the
+whole direction column is unavailable rather than wrong.** Check `describe_schema` for
+`AWS_VPC_SECURITY_GROUP_INGRESS_RULE` before relying on it. Within a project that does have
+state, console-created rules and anything managed elsewhere also land here. Two
+non-authoritative signals help triage an unknown, and both are worth stating as unconfirmed:
 
 - `ruleDescription` usually says so outright (`all outbound via NAT Gateway`,
   `Allow all outbound traffic`, `HTTPS to internet` are egress; `HTTPS from production
