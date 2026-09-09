@@ -6,7 +6,7 @@
       "url": "https://api.anyshift.io/mcp/graph",
       "headers": {
         "X-Anyshift-Agent-Plugin": "agent-plugin",
-        "X-Anyshift-Agent-Plugin-Version": "0.3.1"
+        "X-Anyshift-Agent-Plugin-Version": "0.3.2"
       }
     }
   }

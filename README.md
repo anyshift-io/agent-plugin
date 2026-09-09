@@ -16,9 +16,10 @@ The portable package validates against Agent Plugins 1.0.0. Since v0.3.0 the pro
 serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
 `find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
 `get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
-v0.3.1 was verified against production on Claude Code on 2026-09-08 with backend v0.94.37
-(cluster-scoped `get_recent_events`: 29/29 rows on the requested cluster versus 5 clusters mixed
-in the unscoped page; see [Compatibility evidence](#compatibility-evidence)). The v0.2.x rows there
+v0.3.2 was verified against production on Claude Code on 2026-09-09 with backend v0.94.47
+(the AWS open-security-group recipe: 50 rows, `securityGroupId` on every row, three distinct
+groups named `default` correctly kept apart by VPC; see
+[Compatibility evidence](#compatibility-evidence)). The v0.2.x rows there
 were captured against the previous catalog surface and are retained with that boundary stated.
 
 ## MCP protocol compatibility
@@ -58,7 +59,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.1
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.2
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
 codex mcp login Anyshift
@@ -195,6 +196,7 @@ SHA.
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |
 |---|---:|---|---|---|---|---|
 | Claude Code on macOS (v0.3.0 surface) | 2.1.258, native plugin install (`/plugin marketplace add`, `/plugin install anyshift-graph@anyshift`) + `/mcp` OAuth | Pass | Pass | Ten event-graph tools discovered | `list_projects`, `describe_schema`, `query_graph` (SPOF recipe) passed | 2026-09-08 |
+| Claude Code on macOS (v0.3.2 surface, backend v0.94.47) | 2.1.266, same native install | Pass | Pass | Ten tools | AWS open-security-group recipe via `query_graph`: 50 rows, `securityGroupId` present on every row, three `default` groups kept distinct by VPC (name alone had merged them) | 2026-09-09 |
 | Claude Code on macOS (v0.3.1 surface, backend v0.94.37) | 2.1.258, same native install | Pass | Pass | Ten tools, `get_recent_events` exposes `cluster` | `find_resources` → `get_recent_events cluster=…` returned 29/29 rows on the requested cluster; unscoped page mixed 5 clusters | 2026-09-08 |
 | Codex CLI on macOS (v0.2.x surface) | 0.147.0, explicit `codex mcp add` | Pass | Pass | Seven catalog tools discovered | `get_exposure` passed | 2026-08-12 |
 | Cursor on Linux (v0.2.x surface) | 3.15.6, `~/.cursor/mcp.json` remote URL + OAuth | Pass | Pass | Six catalog tools discovered | `get_recent_changes` passed | 2026-08-11 |
