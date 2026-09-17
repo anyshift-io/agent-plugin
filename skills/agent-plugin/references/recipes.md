@@ -337,6 +337,44 @@ project has no data for that kind, which is not the same finding. Property names
 (`replicas`, `storageClass`, `image`) are per-source: confirm with `get_resource_details`
 on one node first.
 
+## PagerDuty incident → owning service → workload
+
+"Which incident is about this workload?" and "what does this incident concern?" resolve
+through the PagerDuty **service**, never through the incident title: titles are free text
+and the loudest one is not the relevant one. The graph stores
+`PAGERDUTY_ALERT -[:TRIGGERED]-> PAGERDUTY_INCIDENT -[:AFFECTS]-> PAGERDUTY_SERVICE`, and
+`PAGERDUTY_SERVICE -[:RESOLVES_TO]-> <workload>` when the service is mapped (an
+`anyshift.resource_id=` / `anyshift.qualified_name=` directive in the service description,
+or a service name / URL that normalizes to one hostname). Labels appear in `describe_schema`
+only when the project has the PagerDuty integration.
+
+From a workload (seed by `hashedID` from `find_resources`):
+
+```cypher
+MATCH (w:RESOURCE:ALIVE {hashedID: '<workload hashedID>'})<-[:RESOLVES_TO]-(s:PAGERDUTY_SERVICE:ALIVE)
+OPTIONAL MATCH (i:PAGERDUTY_INCIDENT)-[:AFFECTS]->(s)
+WHERE i.status IN ['triggered', 'acknowledged']
+OPTIONAL MATCH (a:PAGERDUTY_ALERT)-[:TRIGGERED]->(i)
+RETURN s.name AS service, i.title AS incident, i.status AS status, i.urgency AS urgency,
+       count(DISTINCT a) AS alerts
+ORDER BY urgency, incident LIMIT 50
+```
+
+From an incident (its `hashedID` from `find_resources` on the incident label):
+
+```cypher
+MATCH (i:RESOURCE {hashedID: '<incident hashedID>'})-[:AFFECTS]->(s:PAGERDUTY_SERVICE:ALIVE)
+OPTIONAL MATCH (s)-[:RESOLVES_TO]->(w:ALIVE)
+RETURN i.title AS incident, i.status AS status, s.name AS service,
+       collect(DISTINCT coalesce(w.namespace + '/', '') + coalesce(w.name, w.hashedID)) AS workloads
+```
+
+Caveats: an empty `workloads` means the PagerDuty service is **unmapped**, not that the
+incident concerns nothing — say so and fall back to the service name. Incident `status`
+and the on-call roster are current only in PagerDuty itself: confirm there before
+reporting who is paged or whether an incident is still open. Property names (`title`,
+`status`, `urgency`) are per source; confirm on one node with `get_resource_details`.
+
 ## Events scoped to one cluster (or namespace)
 
 "What happened in cluster X yesterday?" on a multi-cluster project must never be answered
