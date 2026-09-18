@@ -113,6 +113,39 @@ history; the native source is the evidence for "right now". Cite both, and say w
 each statement rests on. When no native source is mounted, keep the claim time-stamped
 ("observed at T") rather than present-tense.
 
+### Say it in three parts
+
+A traffic statement has three separable facts, and collapsing them is the error this
+section exists to stop. Report the ones you have and name the one you do not:
+
+> Endpoint-eligible as of T1 (last EndpointSlice observed); recent APM activity, last observed T2; current successful traffic unverified.
+
+- **Eligible**: a Service selected a ready endpoint AT the last EndpointSlice observation,
+  which is graph state like any other and carries its time. It is not a present-tense fact:
+  the pod may have gone unready since, and a cluster whose agent stopped reporting freezes
+  this at its last observation. Give the time, or read the cluster if the question turns on
+  it being true right now.
+- **Observed**: an APM edge or span count in a stated window. Historical, from the graph.
+- **Succeeding now**: requests returning success at this moment. NOT in the graph, and NOT
+  established by readiness either: a Kubernetes read (`resources_get`, endpoint state)
+  shows a pod is *eligible* to receive traffic, never that requests are succeeding. Only
+  request-level evidence carrying outcomes — APM/metrics with status codes or error rates
+  over a stated window, logs of served requests, or an active probe you ran — supports this
+  clause. Without one, it stays "unverified", whatever the first two say and whatever
+  native sources are mounted.
+
+The same discipline applies to the negative: "no APM edge" is not "no traffic", and a
+zero-endpoint Service does not exclude direct-to-pod or health-check traffic.
+
+## Kubernetes terms the graph carries, and what they mean
+
+- **requests** are what the scheduler reserves; **limits** are the ceiling the kernel
+  enforces and what an OOM kill is measured against. A limit is never a reservation, and
+  a pod exceeding its request is not a violation of anything. Say which you read.
+- **ready** is the endpoint's readiness at the last EndpointSlice observed; **phase**
+  (Running/Pending) is the pod lifecycle. A Running pod can be not-ready.
+- **replicas** is the declared count; the number of live pods is the separate fact.
+
 ## An empty result is a query to check, not an absence to report
 
 This holds for every source, not just Cypher. A telemetry query that groups by several

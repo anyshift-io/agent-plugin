@@ -44,7 +44,13 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
 
 ## Reporting discipline
 
-- Cite `hashedID`s and event timestamps for every load-bearing claim.
+- Cite `hashedID`s and event timestamps for every load-bearing claim. For EVENTS also cite
+  the scope the event actually has: namespace and cluster for namespaced Kubernetes events
+  (`pod_oom_killed`, `deployment_degraded`), cluster alone for cluster-scoped ones
+  (`node_preempted`), and the target identifier plus source for provider events that have
+  neither (`update_function_code`). The same type fires in every namespace of every
+  cluster, so an event quoted without its scope is how a real event ends up attached to the
+  wrong workload — but never invent a scope the event does not carry.
 - An edge is not live traffic. APM edges carry `observedAt`: report them as "last observed
   at T". Structural Kubernetes edges carry none: report them as declared state ("the
   Service selects these pods"), never as traffic. Confirm any present-tense claim (current
