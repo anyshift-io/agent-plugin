@@ -113,6 +113,31 @@ history; the native source is the evidence for "right now". Cite both, and say w
 each statement rests on. When no native source is mounted, keep the claim time-stamped
 ("observed at T") rather than present-tense.
 
+### Say it in three parts
+
+A traffic statement has three separable facts, and collapsing them is the error this
+section exists to stop. Report the ones you have and name the one you do not:
+
+> Endpoint-eligible; recent APM activity (last observed T); current successful traffic unverified.
+
+- **Eligible**: a Service selects a ready endpoint. Structural, from the graph.
+- **Observed**: an APM edge or span count in a stated window. Historical, from the graph.
+- **Succeeding now**: requests returning success at this moment. NOT in the graph — only a
+  live APM query or the native source. If you did not run one, the third clause stays
+  "unverified", whatever the first two say.
+
+The same discipline applies to the negative: "no APM edge" is not "no traffic", and a
+zero-endpoint Service does not exclude direct-to-pod or health-check traffic.
+
+## Kubernetes terms the graph carries, and what they mean
+
+- **requests** are what the scheduler reserves; **limits** are the ceiling the kernel
+  enforces and what an OOM kill is measured against. A limit is never a reservation, and
+  a pod exceeding its request is not a violation of anything. Say which you read.
+- **ready** is the endpoint's readiness at the last EndpointSlice observed; **phase**
+  (Running/Pending) is the pod lifecycle. A Running pod can be not-ready.
+- **replicas** is the declared count; the number of live pods is the separate fact.
+
 ## An empty result is a query to check, not an absence to report
 
 This holds for every source, not just Cypher. A telemetry query that groups by several

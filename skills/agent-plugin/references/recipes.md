@@ -384,6 +384,12 @@ Keep `incidentId` in the first RETURN (titles repeat, so grouping on title alone
 concurrent incidents) and `cluster`/`hashedID` in the collected workloads (the same
 `namespace/name` exists once per cluster).
 
+**"Open" is a status, never a time window.** Do not add a `createdAt`/`ts` bound when
+looking for open incidents: an incident opened three weeks ago can still be `triggered` or
+`acknowledged`, and a 24-hour filter silently hides it — which reads as "no open incident"
+for the very service that is paging someone. Filter on `status`, and use a time bound only
+when the question is itself about a period.
+
 Caveats: an empty `workloads` means the PagerDuty service is **unmapped**, not that the
 incident concerns nothing — say so and fall back to the service name. Incident `status`
 and the on-call roster are current only in PagerDuty itself: confirm there before
