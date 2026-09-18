@@ -58,9 +58,9 @@ hotspots).
   the query or paginate. **Stable pagination requires `ORDER BY`**: `SKIP` without an
   `ORDER BY` gives no guaranteed order between calls, so pages can overlap or miss rows.
 - **Edge properties are a JSON string in Cypher.** `r.ready`, `r.operations`, `r.via` are
-  null on a relationship; the props live in `r.props_json`. Read them with
-  `apoc.convert.fromJsonMap(r.props_json).ready`, or use `get_related` /
-  `get_resource_details`, which return them parsed.
+  null on a relationship; the props live in `r.props_json`, and `apoc.*` is not available
+  on this surface. Use `get_related` / `get_resource_details`, which return them parsed,
+  or a string test in Cypher (`r.props_json CONTAINS '"ready":true'`).
 
 ## Observed topology is not current traffic
 
