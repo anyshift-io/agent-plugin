@@ -59,7 +59,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.2
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.3
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
 codex mcp login Anyshift
