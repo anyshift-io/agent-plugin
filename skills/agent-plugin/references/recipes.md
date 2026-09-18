@@ -355,8 +355,8 @@ MATCH (w:RESOURCE:ALIVE {hashedID: '<workload hashedID>'})<-[:RESOLVES_TO]-(s:PA
 OPTIONAL MATCH (i:PAGERDUTY_INCIDENT:ALIVE)-[:AFFECTS]->(s)
 WHERE i.status IN ['triggered', 'acknowledged']
 OPTIONAL MATCH (a:PAGERDUTY_ALERT:ALIVE)-[:TRIGGERED]->(i)
-RETURN s.name AS service, i.title AS incident, i.status AS status, i.urgency AS urgency,
-       count(DISTINCT a) AS alerts
+RETURN s.name AS service, i.hashedID AS incidentId, i.title AS incident, i.status AS status,
+       i.urgency AS urgency, count(DISTINCT a) AS alerts
 ORDER BY urgency, incident LIMIT 50
 ```
 
@@ -366,8 +366,12 @@ From an incident (its `hashedID` from `find_resources` on the incident label):
 MATCH (i:RESOURCE {hashedID: '<incident hashedID>'})-[:AFFECTS]->(s:PAGERDUTY_SERVICE:ALIVE)
 OPTIONAL MATCH (s)-[:RESOLVES_TO]->(w:ALIVE)
 RETURN i.title AS incident, i.status AS status, s.name AS service,
-       collect(DISTINCT coalesce(w.namespace + '/', '') + coalesce(w.name, w.hashedID)) AS workloads
+       collect(DISTINCT {cluster: w.clusterID, workload: coalesce(w.namespace + '/', '') + coalesce(w.name, w.hashedID), hashedID: w.hashedID}) AS workloads
 ```
+
+Keep `incidentId` in the first RETURN (titles repeat, so grouping on title alone merges
+concurrent incidents) and `cluster`/`hashedID` in the collected workloads (the same
+`namespace/name` exists once per cluster).
 
 Caveats: an empty `workloads` means the PagerDuty service is **unmapped**, not that the
 incident concerns nothing — say so and fall back to the service name. Incident `status`
