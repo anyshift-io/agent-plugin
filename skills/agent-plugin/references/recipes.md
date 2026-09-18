@@ -166,12 +166,19 @@ Reverse, from a workload ("is this reachable from the internet?"):
 
 ```cypher
 MATCH (w:RESOURCE:ALIVE {hashedID: '<workload hashedID>'})
-MATCH (w)-[:CONTROLS|MANAGES*1..2]->(p:K8S_POD:ALIVE)<-[:EXPOSES]-(svc:K8S_SERVICE:ALIVE)
+// OPTIONAL: a workload scaled to zero has no pods, and a hard MATCH here would
+// return no rows — which reads as "not exposed" when the Service exists and simply
+// selects nothing today.
+OPTIONAL MATCH (w)-[:CONTROLS|MANAGES*1..2]->(p:K8S_POD:ALIVE)<-[:EXPOSES]-(svc:K8S_SERVICE:ALIVE)
 OPTIONAL MATCH (ing:K8S_INGRESS:ALIVE)-[:ROUTES_TO]->(svc)
 OPTIONAL MATCH (h:CLOUDFLARE_HOSTNAME:ALIVE)-[:FRONTS|PROXIES_TO|ROUTES_THROUGH]->(ing)
 RETURN svc.name AS service, svc.type AS serviceType,
        collect(DISTINCT ing.name) AS ingresses, collect(DISTINCT h.name) AS publicHostnames
 ```
+
+This path finds Services **through live pods**, so it answers "how is traffic reaching this
+workload today", not "does this workload have a Service". For the latter, match the Service
+by selector/namespace directly (see Inventory below).
 
 Caveat: an empty `publicHostnames` means no *stored* route, not "private" — a LoadBalancer
 Service, a NodePort, or a hostname managed outside the connected Cloudflare account are
@@ -379,6 +386,37 @@ incident concerns nothing — say so and fall back to the service name. Incident
 and the on-call roster are current only in PagerDuty itself: confirm there before
 reporting who is paged or whether an incident is still open. Property names (`title`,
 `status`, `urgency`) are per source; confirm on one node with `get_resource_details`.
+
+## Inventory: how many of X exist
+
+Counting questions ("how many Services does this fleet have") are answered by counting the
+LABEL, never by traversing a relationship — a fleet scaled to zero has every Service and no
+pods, and `Service → EXPOSES → Pod` returns nothing for it.
+
+```cypher
+MATCH (s:K8S_SERVICE:ALIVE)
+WHERE s.clusterID = $clusterID AND s.namespace STARTS WITH 'bench-'
+RETURN s.namespace AS namespace, count(s) AS services
+ORDER BY namespace
+```
+
+Add the relationship as a separate, optional measure on the same rows when the question is
+about both — then the two numbers stay distinguishable:
+
+```cypher
+MATCH (s:K8S_SERVICE:ALIVE)
+WHERE s.clusterID = $clusterID AND s.namespace STARTS WITH 'bench-'
+RETURN count(s) AS services,
+       size([x IN collect(s) WHERE EXISTS { (x)-[:EXPOSES]->(:K8S_POD:ALIVE) }]) AS withLivePods
+```
+
+Always scope by `clusterID`: a project holds several clusters, an unscoped count mixes them,
+and a cluster whose agent stopped reporting still contributes `:ALIVE` resources until it is
+removed. Report the scope with the number.
+
+Caveat: this counts what the graph holds, which is what the last observation said. It is the
+right answer for "what exists"; for "what is running", read the workload's replica/pod state
+as a separate fact.
 
 ## Events scoped to one cluster (or namespace)
 

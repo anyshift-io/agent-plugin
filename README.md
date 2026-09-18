@@ -16,7 +16,10 @@ The portable package validates against Agent Plugins 1.0.0. Since v0.3.0 the pro
 serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
 `find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
 `get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
-v0.3.4 was verified against production on Claude Code on 2026-09-18 with backend v0.95.7
+v0.3.5 was verified against production on Claude Code on 2026-09-18 with backend v0.95.8
+(inventory counting, the observedAt/currentAsOf mapping and the traffic-vocabulary rules,
+after a plugin-only run counted Services through a pod traversal and reported 0 where the
+graph holds 200). v0.3.4 was verified against production on Claude Code on 2026-09-18 with backend v0.95.7
 (the native-verification and empty-result guidance, after a six-run combined-arm regression
 showed agents skipping a mounted Kubernetes MCP because the guidance named `kubectl`).
 v0.3.3 was verified against production on Claude Code on 2026-09-18 with backend v0.95.6
@@ -63,7 +66,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.4
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.5
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
 codex mcp login Anyshift
@@ -200,6 +203,7 @@ SHA.
 | Client | Version | OAuth | Initialize | Tools | Authenticated call | Evidence date |
 |---|---:|---|---|---|---|---|
 | Claude Code on macOS (v0.3.0 surface) | 2.1.258, native plugin install (`/plugin marketplace add`, `/plugin install anyshift-graph@anyshift`) + `/mcp` OAuth | Pass | Pass | Ten event-graph tools discovered | `list_projects`, `describe_schema`, `query_graph` (SPOF recipe) passed | 2026-09-08 |
+| Claude Code on macOS (v0.3.5 surface, backend v0.95.8) | 2.1.274, same native install | Pass | Pass | Ten tools | Verified against the demo project: direct label count returns 200 `K8S_SERVICE` in 8 `bench-*` namespaces with 0 having a live pod, the count the old pod-traversal reported as zero; `find_resources` rows carry `env`; incident `Q373W36H5V9X8J` reproduced the stale `resolvedAt` fixed in backend #1376 | 2026-09-18 |
 | Claude Code on macOS (v0.3.4 surface, backend v0.95.7) | 2.1.274, same native install | Pass | Pass | Ten tools | Same live checks as v0.3.3 (PagerDuty incident → service → workload, `affectedService` on incident rows, `get_related max_age_hours=24`); guidance change validated against the v0.3.3 combined-arm transcripts, where three answers reported native evidence unavailable while a Kubernetes MCP was mounted | 2026-09-18 |
 | Claude Code on macOS (v0.3.3 surface, backend v0.95.6) | 2.1.274, same native install | Pass | Pass | Ten tools | `find_resources label=PAGERDUTY_INCIDENT`: every row carries `affectedService`, three incidents with the identical title separated by `hashedID`; incident → `AFFECTS` → service → `RESOLVES_TO` → `demo/any1825-demo` and the reverse recipe (10 rows, `incidentId` kept); `get_related max_age_hours=24` on that Service kept its structural `EXPOSES {ready:false, via:endpointslice}` edge (`observedAt` null); `query_graph` confirmed `r.ready` is null while `r.props_json` carries it and `apoc.*` is rejected on this surface | 2026-09-18 |
 | Claude Code on macOS (v0.3.2 surface, backend v0.94.47) | 2.1.266, same native install | Pass | Pass | Ten tools | AWS open-security-group recipe via `query_graph`: 50 rows, `securityGroupId` present on every row, three `default` groups kept distinct by VPC (name alone had merged them) | 2026-09-09 |

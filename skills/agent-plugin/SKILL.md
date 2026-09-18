@@ -57,6 +57,7 @@ hotspots).
 - One statement per call; results are capped (a truncation note tells you when) — narrow
   the query or paginate. **Stable pagination requires `ORDER BY`**: `SKIP` without an
   `ORDER BY` gives no guaranteed order between calls, so pages can overlap or miss rows.
+- **Count the entity, never a join through it.** `MATCH (s:K8S_SERVICE:ALIVE)-[:EXPOSES]->(:K8S_POD:ALIVE)` answers "Services with a live backing pod", NOT "Services". A fleet scaled to zero has 200 Services and no pods, so that join returns nothing and reads as "there are no Services". Count the label first (`MATCH (s:K8S_SERVICE:ALIVE) WHERE … RETURN count(s)`), then ask about its relationships in a SEPARATE query, and say which of the two any number is.
 - **Edge properties are a JSON string in Cypher.** `r.ready`, `r.operations`, `r.via` are
   null on a relationship; the props live in `r.props_json`, and `apoc.*` is not available
   on this surface. Use `get_related` / `get_resource_details`, which return them parsed,
@@ -70,14 +71,28 @@ Every edge is an observation with an age, not a live probe:
   **accumulate**: a dependency seen once stays until pruned, and `get_resource_details`
   lists a July edge next to today's. Pass `max_age_hours` (24 for "current") to
   `get_related`, or filter on `r.currentAsOf` in Cypher, before saying "A currently calls B".
-  Read `observedAt` on every edge you cite.
+  **`observedAt` and `currentAsOf` are the same field**: the tools return it parsed as
+  `observedAt`, the stored property Cypher must read is `currentAsOf` — `r.observedAt` is
+  null on every edge. Cite the age on every edge you report.
 - Structural Kubernetes edges (`EXPOSES`, `SCHEDULED_ON`, `CONTROLS`, …) are maintained
   from the cluster and carry no `observedAt`; they say what the control plane declared,
   not that packets flow. `EXPOSES {ready}` is the endpoint's readiness at the last
   EndpointSlice the agent shipped.
-- "Receives traffic right now" is a claim only a live source supports (APM within
-  `max_age_hours`, or the native tool below). Report graph edges as "declared / last
-  observed at T", not as present-tense traffic.
+- **Never write "serving", "receiving traffic" or "not receiving traffic" from graph
+  evidence, in either direction.** An APM edge at any age shows a request was observed, not
+  that requests succeed now; zero Service endpoints does not exclude direct-to-pod or
+  health-check traffic; and a dormant-looking workload is not proven idle by the absence of
+  an edge. The vocabulary the graph supports is "declared route", "last observed at T" and
+  "no edge recorded". "Receives traffic right now" is a claim only a live source supports
+  (APM within `max_age_hours`, or the native tool below).
+
+## `:ALIVE` is not a status
+
+`:ALIVE` means the node has not been deleted from the graph, never that the thing is
+active. A resolved PagerDuty incident stays `:ALIVE` — filter on `status` for open ones —
+and a Deployment scaled to zero is `:ALIVE` with no pods. Read the property that carries
+the state you mean, and treat vendor status (incident open/closed, who is on call) as
+current only in the vendor's own API.
 
 ## Verify current-state claims with a native source
 
