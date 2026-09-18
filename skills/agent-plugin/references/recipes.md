@@ -176,9 +176,12 @@ RETURN svc.name AS service, svc.type AS serviceType,
        collect(DISTINCT ing.name) AS ingresses, collect(DISTINCT h.name) AS publicHostnames
 ```
 
-This path finds Services **through live pods**, so it answers "how is traffic reaching this
-workload today", not "does this workload have a Service". For the latter, match the Service
-by selector/namespace directly (see Inventory below).
+This path finds Services **through pods that still exist**, so it answers "what route is
+declared to this workload", not "does this workload have a Service" and not "is traffic
+flowing". Every hop is a structural edge between `:ALIVE` nodes, and `:ALIVE` means
+undeleted: a stale observation, an unready endpoint or a pod nobody calls all produce this
+same path. For "does a Service exist", match it by selector/namespace directly (see
+Inventory below); for traffic, read the APM or the cluster.
 
 Caveat: an empty `publicHostnames` means no *stored* route, not "private" — a LoadBalancer
 Service, a NodePort, or a hostname managed outside the connected Cloudflare account are
@@ -407,8 +410,17 @@ about both — then the two numbers stay distinguishable:
 MATCH (s:K8S_SERVICE:ALIVE)
 WHERE s.clusterID = $clusterID AND s.namespace STARTS WITH 'bench-'
 RETURN count(s) AS services,
-       size([x IN collect(s) WHERE EXISTS { (x)-[:EXPOSES]->(:K8S_POD:ALIVE) }]) AS withLivePods
+       size([x IN collect(s) WHERE EXISTS { (x)-[:EXPOSES]->(:K8S_POD:ALIVE) }]) AS withPodEdge,
+       size([x IN collect(s) WHERE EXISTS {
+         (x)-[r:EXPOSES]->(:K8S_POD:ALIVE) WHERE r.props_json CONTAINS '"ready":true'
+       }]) AS withReadyEndpoint
 ```
+
+`withPodEdge` counts Services with a stored edge to an undeleted pod — not live backends:
+`:ALIVE` is undeleted, and `EXPOSES` deliberately keeps not-ready endpoints as
+`{ready:false}` so the pod under investigation stays visible. `withReadyEndpoint` reads the
+readiness the endpoint slice last reported, which is the closest the graph gets; whether
+that pod serves a request now is a question for the cluster or the APM.
 
 Always scope by `clusterID`: a project holds several clusters, an unscoped count mixes them,
 and a cluster whose agent stopped reporting still contributes `:ALIVE` resources until it is
