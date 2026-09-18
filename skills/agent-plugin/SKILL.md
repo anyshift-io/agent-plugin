@@ -57,6 +57,37 @@ hotspots).
 - One statement per call; results are capped (a truncation note tells you when) — narrow
   the query or paginate. **Stable pagination requires `ORDER BY`**: `SKIP` without an
   `ORDER BY` gives no guaranteed order between calls, so pages can overlap or miss rows.
+- **Edge properties are a JSON string in Cypher.** `r.ready`, `r.operations`, `r.via` are
+  null on a relationship; the props live in `r.props_json`. Read them with
+  `apoc.convert.fromJsonMap(r.props_json).ready`, or use `get_related` /
+  `get_resource_details`, which return them parsed.
+
+## Observed topology is not current traffic
+
+Every edge is an observation with an age, not a live probe:
+
+- APM edges (`CALLS_TO`, `USES_DATASTORE`, `PRODUCES_TO`, `CONSUMED_BY`, `USES_ENDPOINT`)
+  **accumulate**: a dependency seen once stays until pruned, and `get_resource_details`
+  lists a July edge next to today's. Pass `max_age_hours` (24 for "current") to
+  `get_related`, or filter on `r.currentAsOf` in Cypher, before saying "A currently calls B".
+  Read `observedAt` on every edge you cite.
+- Structural Kubernetes edges (`EXPOSES`, `SCHEDULED_ON`, `CONTROLS`, …) are maintained
+  from the cluster and carry no `observedAt`; they say what the control plane declared,
+  not that packets flow. `EXPOSES {ready}` is the endpoint's readiness at the last
+  EndpointSlice the agent shipped.
+- "Receives traffic right now" is a claim only a live source supports (APM within
+  `max_age_hours`, or the native tool below). Report graph edges as "declared / last
+  observed at T", not as present-tense traffic.
+
+## Verify current-state claims with a native source
+
+When the session also mounts a native source for the layer in question (`kubectl`, a cloud
+CLI, the APM, PagerDuty), confirm any **current-state** claim there before reporting it as
+current: which pods back a Service, whether a resource is reachable, who is on call, what
+an incident is about. The graph is the evidence for topology, relationships and history;
+the native source is the evidence for "right now". Cite both, and say which one each
+statement rests on. When no native source is mounted, keep the claim time-stamped
+("observed at T") rather than present-tense.
 
 ## Safety and trust
 

@@ -15,8 +15,9 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
    - `get_resource_events` (`ref`/`refs` + `from`/`to` window, `type`/`source` filters) for its change history;
    - `get_related` for its graph neighborhood — read the NEIGHBOURHOOD SUMMARY block
      first (exact edge counts per relationship type from the degree store), then drill
-     into one type with `relationship_types` + a higher `limit`; event edges are
-     summarized only (`get_resource_events` lists them);
+     into one type with `relationship_types` + a higher `limit`; pass `max_age_hours`
+     (24) when the question is about CURRENT APM topology, since those edges accumulate;
+     event edges are summarized only (`get_resource_events` lists them);
    - `get_correlated_events` for a full incident chain from a `correlationId`;
    - `get_recent_events` for the project-wide feed — `since`+`until` give a two-sided
      window; `type`/`source`/`label`/`only_root`/`exclude_noise_classes` cut volume
@@ -44,6 +45,11 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
 ## Reporting discipline
 
 - Cite `hashedID`s and event timestamps for every load-bearing claim.
+- An edge is not live traffic. APM edges carry `observedAt`: report them as "last observed
+  at T". Structural Kubernetes edges carry none: report them as declared state ("the
+  Service selects these pods"), never as traffic. Confirm any present-tense claim (current
+  backends, current callers, current on-call, what an incident concerns) with a native
+  source when one is mounted (`kubectl`, cloud CLI, APM, PagerDuty).
 - Distinguish observed platform events from provider API records when it matters.
 - An empty result is not proof of absence — say what you searched and its bounds.
 - Do not claim causality from temporal proximity alone.
