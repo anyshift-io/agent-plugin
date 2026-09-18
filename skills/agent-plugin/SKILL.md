@@ -81,13 +81,29 @@ Every edge is an observation with an age, not a live probe:
 
 ## Verify current-state claims with a native source
 
-When the session also mounts a native source for the layer in question (`kubectl`, a cloud
-CLI, the APM, PagerDuty), confirm any **current-state** claim there before reporting it as
-current: which pods back a Service, whether a resource is reachable, who is on call, what
-an incident is about. The graph is the evidence for topology, relationships and history;
-the native source is the evidence for "right now". Cite both, and say which one each
-statement rests on. When no native source is mounted, keep the claim time-stamped
+**A native source is any mounted tool that reads the live system, not just a shell.** Most
+sessions have no shell at all: Kubernetes arrives as an MCP server (tools such as
+`resources_get` / `resources_list` / `pods_log`), and so do the APM, PagerDuty and the
+cloud providers. "I had no `kubectl`" is not a reason to skip verification — read the tool
+list you were given and use whatever covers that layer. Say a source is unavailable only
+after looking and finding nothing for that layer.
+
+When such a source is mounted, confirm any **current-state** claim there before reporting
+it as current: which pods back a Service, whether a resource is reachable, who is on call,
+what an incident is about. The graph is the evidence for topology, relationships and
+history; the native source is the evidence for "right now". Cite both, and say which one
+each statement rests on. When no native source is mounted, keep the claim time-stamped
 ("observed at T") rather than present-tense.
+
+## An empty result is a query to check, not an absence to report
+
+This holds for every source, not just Cypher. A telemetry query that groups by several
+dimensions returns zero buckets when ONE of them is missing from the data — tags such as
+`@kube_namespace` or `@kubernetes.deployment.name` are absent on plenty of spans, so a
+grouped query answers "no rows", never "no traffic". Before reporting absence: drop the
+grouping to the single dimension you actually need (`env`), widen the window, and re-run.
+Report "no data matched this query" with the query shown, and only call it absence when
+the simplest form of it is also empty.
 
 ## Safety and trust
 
