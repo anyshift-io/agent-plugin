@@ -122,9 +122,13 @@ section exists to stop. Report the ones you have and name the one you do not:
 
 - **Eligible**: a Service selects a ready endpoint. Structural, from the graph.
 - **Observed**: an APM edge or span count in a stated window. Historical, from the graph.
-- **Succeeding now**: requests returning success at this moment. NOT in the graph — only a
-  live APM query or the native source. If you did not run one, the third clause stays
-  "unverified", whatever the first two say.
+- **Succeeding now**: requests returning success at this moment. NOT in the graph, and NOT
+  established by readiness either: a Kubernetes read (`resources_get`, endpoint state)
+  shows a pod is *eligible* to receive traffic, never that requests are succeeding. Only
+  request-level evidence carrying outcomes — APM/metrics with status codes or error rates
+  over a stated window, logs of served requests, or an active probe you ran — supports this
+  clause. Without one, it stays "unverified", whatever the first two say and whatever
+  native sources are mounted.
 
 The same discipline applies to the negative: "no APM edge" is not "no traffic", and a
 zero-endpoint Service does not exclude direct-to-pod or health-check traffic.
