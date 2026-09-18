@@ -366,7 +366,8 @@ From an incident (its `hashedID` from `find_resources` on the incident label):
 MATCH (i:RESOURCE {hashedID: '<incident hashedID>'})-[:AFFECTS]->(s:PAGERDUTY_SERVICE:ALIVE)
 OPTIONAL MATCH (s)-[:RESOLVES_TO]->(w:ALIVE)
 RETURN i.title AS incident, i.status AS status, s.name AS service,
-       collect(DISTINCT {cluster: w.clusterID, workload: coalesce(w.namespace + '/', '') + coalesce(w.name, w.hashedID), hashedID: w.hashedID}) AS workloads
+       collect(DISTINCT CASE WHEN w IS NULL THEN null
+                             ELSE {cluster: w.clusterID, workload: coalesce(w.namespace + '/', '') + coalesce(w.name, w.hashedID), hashedID: w.hashedID} END) AS workloads
 ```
 
 Keep `incidentId` in the first RETURN (titles repeat, so grouping on title alone merges
