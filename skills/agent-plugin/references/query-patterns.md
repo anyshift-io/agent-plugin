@@ -52,6 +52,8 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
   source when one is mounted — an MCP server for Kubernetes (`resources_get`/`resources_list`),
   the APM, PagerDuty or a cloud provider, not only a shell/`kubectl`; check the tools you were
   actually given before saying a layer could not be verified.
+- Say whether a count is of the entity or of a join: "200 Services, 0 of them with a live
+  backing pod" is right; "no Services" from an empty `Service → Pod` traversal is wrong.
 - An empty result never proves absence, in any source: a query grouped on several dimensions
   returns zero buckets when one dimension is missing from the data. Re-run it with the
   grouping reduced to what the question needs before reporting "none".
