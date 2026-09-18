@@ -49,7 +49,12 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
   at T". Structural Kubernetes edges carry none: report them as declared state ("the
   Service selects these pods"), never as traffic. Confirm any present-tense claim (current
   backends, current callers, current on-call, what an incident concerns) with a native
-  source when one is mounted (`kubectl`, cloud CLI, APM, PagerDuty).
+  source when one is mounted — an MCP server for Kubernetes (`resources_get`/`resources_list`),
+  the APM, PagerDuty or a cloud provider, not only a shell/`kubectl`; check the tools you were
+  actually given before saying a layer could not be verified.
+- An empty result never proves absence, in any source: a query grouped on several dimensions
+  returns zero buckets when one dimension is missing from the data. Re-run it with the
+  grouping reduced to what the question needs before reporting "none".
 - Distinguish observed platform events from provider API records when it matters.
 - An empty result is not proof of absence — say what you searched and its bounds.
 - Do not claim causality from temporal proximity alone.
