@@ -352,9 +352,9 @@ From a workload (seed by `hashedID` from `find_resources`):
 
 ```cypher
 MATCH (w:RESOURCE:ALIVE {hashedID: '<workload hashedID>'})<-[:RESOLVES_TO]-(s:PAGERDUTY_SERVICE:ALIVE)
-OPTIONAL MATCH (i:PAGERDUTY_INCIDENT)-[:AFFECTS]->(s)
+OPTIONAL MATCH (i:PAGERDUTY_INCIDENT:ALIVE)-[:AFFECTS]->(s)
 WHERE i.status IN ['triggered', 'acknowledged']
-OPTIONAL MATCH (a:PAGERDUTY_ALERT)-[:TRIGGERED]->(i)
+OPTIONAL MATCH (a:PAGERDUTY_ALERT:ALIVE)-[:TRIGGERED]->(i)
 RETURN s.name AS service, i.title AS incident, i.status AS status, i.urgency AS urgency,
        count(DISTINCT a) AS alerts
 ORDER BY urgency, incident LIMIT 50

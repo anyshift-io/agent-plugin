@@ -45,10 +45,11 @@ mandatory diagnosis step list, and do not encode alert-specific conclusion recip
 ## Reporting discipline
 
 - Cite `hashedID`s and event timestamps for every load-bearing claim.
-- An edge is an observation with an age (`observedAt`), not live traffic: report it as
-  "last observed at T", and confirm any present-tense claim (current backends, current
-  callers, current on-call, what an incident concerns) with a native source when one is
-  mounted (`kubectl`, cloud CLI, APM, PagerDuty).
+- An edge is not live traffic. APM edges carry `observedAt`: report them as "last observed
+  at T". Structural Kubernetes edges carry none: report them as declared state ("the
+  Service selects these pods"), never as traffic. Confirm any present-tense claim (current
+  backends, current callers, current on-call, what an incident concerns) with a native
+  source when one is mounted (`kubectl`, cloud CLI, APM, PagerDuty).
 - Distinguish observed platform events from provider API records when it matters.
 - An empty result is not proof of absence — say what you searched and its bounds.
 - Do not claim causality from temporal proximity alone.
