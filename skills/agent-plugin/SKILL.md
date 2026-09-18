@@ -83,8 +83,11 @@ Every edge is an observation with an age, not a live probe:
   that requests succeed now; zero Service endpoints does not exclude direct-to-pod or
   health-check traffic; and a dormant-looking workload is not proven idle by the absence of
   an edge. The vocabulary the graph supports is "declared route", "last observed at T" and
-  "no edge recorded". "Receives traffic right now" is a claim only a live source supports
-  (APM within `max_age_hours`, or the native tool below).
+  "no edge recorded". "Receives traffic right now" is a claim NO graph query supports, including an APM
+  edge inside `max_age_hours` — that option filters accumulated observations, so a single
+  request 23 hours ago passes a 24-hour window and still says nothing about now. Only a
+  live read supports it: query the APM itself for the window you mean, or the native
+  source below.
 
 ## `:ALIVE` is not a status
 
