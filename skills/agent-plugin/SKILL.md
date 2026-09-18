@@ -118,9 +118,13 @@ each statement rests on. When no native source is mounted, keep the claim time-s
 A traffic statement has three separable facts, and collapsing them is the error this
 section exists to stop. Report the ones you have and name the one you do not:
 
-> Endpoint-eligible; recent APM activity (last observed T); current successful traffic unverified.
+> Endpoint-eligible as of T1 (last EndpointSlice observed); recent APM activity, last observed T2; current successful traffic unverified.
 
-- **Eligible**: a Service selects a ready endpoint. Structural, from the graph.
+- **Eligible**: a Service selected a ready endpoint AT the last EndpointSlice observation,
+  which is graph state like any other and carries its time. It is not a present-tense fact:
+  the pod may have gone unready since, and a cluster whose agent stopped reporting freezes
+  this at its last observation. Give the time, or read the cluster if the question turns on
+  it being true right now.
 - **Observed**: an APM edge or span count in a stated window. Historical, from the graph.
 - **Succeeding now**: requests returning success at this moment. NOT in the graph, and NOT
   established by readiness either: a Kubernetes read (`resources_get`, endpoint state)
