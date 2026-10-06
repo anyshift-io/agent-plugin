@@ -1,7 +1,7 @@
 name: Validate Agent Plugin
 
 on:
-  pull_request:
+  workflow_dispatch:
   push:
     branches: [main]
     tags: ["v*"]
@@ -31,3 +31,61 @@ jobs:
       - run: npm run validate
       - if: startsWith(github.ref, 'refs/tags/v')
         run: npm run verify:release -- "$GITHUB_REF_NAME"
+  mark-manual-status-pending:
+    name: Mark required statuses pending
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Mark required statuses as pending
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71
+        env:
+          REQUIRED_CONTEXTS: '["validate"]'
+        with:
+          github-token: ${{ github.token }}
+          script: |-
+            const contexts = JSON.parse(process.env.REQUIRED_CONTEXTS);
+            for (const requiredContext of contexts) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: 'pending',
+                context: requiredContext,
+                description: 'Manual validation is running',
+                target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+            }
+  report-manual-required-status:
+    name: Report required statuses
+    if: always() && github.event_name == 'workflow_dispatch'
+    needs:
+      - mark-manual-status-pending
+      - validate
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish required statuses for this commit
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71
+        env:
+          REQUIRED_CONTEXT_JOBS: '{"validate":["validate"]}'
+          NEEDS_RESULTS: '${{ toJSON(needs) }}'
+        with:
+          github-token: ${{ github.token }}
+          script: |-
+            const contextJobs = JSON.parse(process.env.REQUIRED_CONTEXT_JOBS);
+            const results = JSON.parse(process.env.NEEDS_RESULTS);
+            for (const [requiredContext, jobIds] of Object.entries(contextJobs)) {
+              const success = jobIds.every(jobId => results[jobId]?.result === 'success');
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: success ? 'success' : 'failure',
+                context: requiredContext,
+                description: success ? 'Manual validation passed' : 'Manual validation failed',
+                target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+            }

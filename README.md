@@ -234,3 +234,15 @@ uninstall behavior are recorded.
 - Absence of graph evidence is not proof that a resource, dependency, or change does not exist.
 
 Report vulnerabilities privately through this repository's GitHub Security Advisory page.
+
+## Manual pull request validation
+
+PR workflows do not start automatically when a pull request opens or receives a commit. Run the relevant validation from GitHub Actions using the pull request branch, or from `gh`:
+
+```sh
+gh workflow run <workflow-file> --ref <pr-branch> --repo anyshift-io/agent-plugin
+```
+
+Re-run required checks after each new commit; a successful run must match the pull request’s latest commit. Supply any required workflow inputs.
+
+Manual workflow files: `.github/workflows/validate.yml`.
