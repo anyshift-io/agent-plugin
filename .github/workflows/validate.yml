@@ -2,12 +2,17 @@ name: Validate Agent Plugin
 
 on:
   workflow_dispatch:
+  # Fork PRs cannot use workflow_dispatch because their branch is not in this
+  # repository. Run their validation with a read-only token instead.
+  pull_request_target:
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
     tags: ["v*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'ci' || github.run_id }}
+  # Manual retries for a ref must not race while publishing the required status.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -15,14 +20,23 @@ permissions:
 
 jobs:
   validate:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.fork == true
     # Public repo: org Self-Hosted runner group has allows_public_repositories=false,
     # so jobs must use GitHub-hosted runners or they stay queued forever.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      # Do not read or write the base-branch npm cache while running fork code.
+      - if: github.event_name == 'pull_request_target'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - if: github.event_name != 'pull_request_target'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
