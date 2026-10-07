@@ -2,13 +2,13 @@
 
 ## Manually validating pull requests
 
-Same-repository pull requests do not start validation automatically. Fork pull requests run validation automatically with a read-only token because their branches cannot be selected for manual dispatch. For same-repository pull requests, run each required workflow against the latest commit before merging. A new commit requires fresh successful checks.
+Pull requests do not start validation automatically, including pull requests from forks. The required `validate` check is the GitHub Actions job check on the commit selected for manual dispatch. A new commit requires a fresh successful run.
 
-- **GitHub UI:** Open **Actions**, select the workflow, choose **Run workflow**, select the same-repository pull request branch, provide any required inputs, and start the run. Manual dispatch is available once the workflow is present on the default branch.
-- **GitHub CLI:** Agents can run the workflow on a same-repository pull request branch:
+- **GitHub UI:** Open **Actions**, select the workflow, choose **Run workflow**, select the pull request branch in this repository, provide any required inputs, and start the run.
+- **GitHub CLI:** Agents can run the workflow on a pull request branch in this repository:
 
   ```sh
   gh workflow run <workflow-file> --ref <pr-branch> --repo anyshift-io/agent-plugin -f name=value
   ```
 
-Replace `<workflow-file>` and `<pr-branch>` with the workflow path and current PR branch. Add `-f name=value` for each required workflow input. Confirm every required status has passed on the current PR head before merging. Fork pull requests use the automatic read-only validation path instead.
+Replace `<workflow-file>` and `<pr-branch>` with the workflow path and current PR branch. Add `-f name=value` for each required workflow input. Confirm the `validate` job check has passed on the exact PR head before merging. A fork branch cannot be selected for dispatch from this repository; validate it only after its commit is available on a branch in this repository.

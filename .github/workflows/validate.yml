@@ -2,17 +2,13 @@ name: Validate Agent Plugin
 
 on:
   workflow_dispatch:
-  # Fork PRs cannot use workflow_dispatch because their branch is not in this
-  # repository. Run their validation on the read-only pull_request event.
-  pull_request:
-    types: [opened, synchronize, reopened]
   push:
     branches: [main]
     tags: ["v*"]
 
 concurrency:
   # Manual retries for a ref must not race while publishing the required status.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -20,24 +16,15 @@ permissions:
 
 jobs:
   validate:
-    name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork != true && 'validate (manual only)' || 'validate' }}
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == true
     # Public repo: org Self-Hosted runner group has allows_public_repositories=false,
     # so jobs must use GitHub-hosted runners or they stay queued forever.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
-      # Do not read or write the base-branch npm cache while running fork code.
-      - if: github.event_name == 'pull_request'
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-      - if: github.event_name != 'pull_request'
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -46,61 +33,3 @@ jobs:
       - run: npm run validate
       - if: startsWith(github.ref, 'refs/tags/v')
         run: npm run verify:release -- "$GITHUB_REF_NAME"
-  mark-manual-status-pending:
-    name: Mark required statuses pending
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Mark required statuses as pending
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71
-        env:
-          REQUIRED_CONTEXTS: '["validate"]'
-        with:
-          github-token: ${{ github.token }}
-          script: |-
-            const contexts = JSON.parse(process.env.REQUIRED_CONTEXTS);
-            for (const requiredContext of contexts) {
-              await github.rest.repos.createCommitStatus({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                sha: context.sha,
-                state: 'pending',
-                context: requiredContext,
-                description: 'Manual validation is running',
-                target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              });
-            }
-  report-manual-required-status:
-    name: Report required statuses
-    if: always() && github.event_name == 'workflow_dispatch'
-    needs:
-      - mark-manual-status-pending
-      - validate
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Publish required statuses for this commit
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71
-        env:
-          REQUIRED_CONTEXT_JOBS: '{"validate":["validate"]}'
-          NEEDS_RESULTS: '${{ toJSON(needs) }}'
-        with:
-          github-token: ${{ github.token }}
-          script: |-
-            const contextJobs = JSON.parse(process.env.REQUIRED_CONTEXT_JOBS);
-            const results = JSON.parse(process.env.NEEDS_RESULTS);
-            for (const [requiredContext, jobIds] of Object.entries(contextJobs)) {
-              const success = jobIds.every(jobId => results[jobId]?.result === 'success');
-              await github.rest.repos.createCommitStatus({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                sha: context.sha,
-                state: success ? 'success' : 'failure',
-                context: requiredContext,
-                description: success ? 'Manual validation passed' : 'Manual validation failed',
-                target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              });
-            }
