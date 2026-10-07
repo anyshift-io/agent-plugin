@@ -237,7 +237,7 @@ Report vulnerabilities privately through this repository's GitHub Security Advis
 
 ## Manual pull request validation
 
-PR workflows do not start automatically when a pull request opens or receives a commit. Run the relevant validation from GitHub Actions using the pull request branch, or from `gh`:
+The validation workflow does not start automatically when a pull request opens or receives a commit. Slack notifications still run automatically when GitHub requests a human review; separate review integrations have their own automatic triggers. Run validation from GitHub Actions using the pull request branch, or from `gh`:
 
 ```sh
 gh workflow run <workflow-file> --ref <pr-branch> --repo anyshift-io/agent-plugin
