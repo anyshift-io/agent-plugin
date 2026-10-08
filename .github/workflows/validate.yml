@@ -9,7 +9,6 @@ on:
         description: "Open pull request number to validate manually; dispatch against main"
         required: false
         type: string
-  pull_request:
   push:
     branches: [main]
     tags: ["v*"]

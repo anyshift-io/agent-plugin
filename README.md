@@ -234,3 +234,19 @@ uninstall behavior are recorded.
 - Absence of graph evidence is not proof that a resource, dependency, or change does not exist.
 
 Report vulnerabilities privately through this repository's GitHub Security Advisory page.
+
+## Manual pull request validation
+
+The validation workflow does not start automatically when a pull request opens or receives a commit. Slack notifications still run automatically when GitHub requests a human review; separate review integrations have their own automatic triggers.
+
+For any pull request, whether it comes from this repository or a fork, dispatch the trusted workflow from `main` and pass the PR number. Use GitHub Actions (**Validate Agent Plugin** → **Run workflow** on `main` with `pr_number`) or `gh`:
+
+```sh
+gh workflow run validate.yml --ref main --repo anyshift-io/agent-plugin -f pr_number=<number>
+```
+
+The workflow resolves the open PR's immutable head SHA and merge result. It validates the merge result on a GitHub-hosted runner with read-only contents access and no persisted checkout credential, then completes the required `validate` check run on the PR head from a separate trusted job. That job does not check out or execute PR code. Validation remains manual and does not publish packages or releases.
+
+Re-run validation after each new commit; a successful run must match the pull request's latest commit.
+
+Manual workflow files: `.github/workflows/validate.yml`.

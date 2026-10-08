@@ -107,10 +107,10 @@ async function calls(run) {
   return text.trim() ? text.trim().split("\n").map(line => JSON.parse(line)) : [];
 }
 
-test("manual dispatcher creates a trusted check; automatic validate remains on non-dispatch paths", async () => {
+test("manual dispatcher creates a trusted check; validate stays manual for PRs and automatic on push", async () => {
   const config = await workflow();
   assert.ok(config.on.workflow_dispatch.inputs.pr_number);
-  assert.ok(Object.hasOwn(config.on, "pull_request"));
+  assert.equal(Object.hasOwn(config.on, "pull_request"), false);
   assert.ok(Object.hasOwn(config.on, "push"));
   assert.match(config.jobs.validate.if, /event_name != 'workflow_dispatch'/);
   assert.deepEqual(config.jobs["validate-fork-pr"].needs, ["resolve-fork-pr", "start-manual-validation-check"]);
