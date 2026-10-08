@@ -246,7 +246,7 @@ jobs:
           fi
 
           completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          output="$(jq -n --arg conclusion "$conclusion" --arg summary "$summary" '{title:"Manual validation " + $conclusion,summary:$summary}')"
+          output="$(jq -n --arg summary "$summary" '{title:"Manual validation complete",summary:$summary}')"
           payload="$(jq -n --arg conclusion "$conclusion" --arg completed_at "$completed_at" --arg details_url "$TARGET_URL" --argjson output "$output" '{status:"completed",conclusion:$conclusion,completed_at:$completed_at,details_url:$details_url,output:$output}')"
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/check-runs/${CHECK_RUN_ID}" --input - <<<"$payload" >/dev/null
 
