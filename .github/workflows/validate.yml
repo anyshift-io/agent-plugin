@@ -1,5 +1,7 @@
 name: Validate Agent Plugin
 
+run-name: "Manual PR validation #${{ inputs.pr_number || 'branch' }}"
+
 on:
   workflow_dispatch:
     inputs:
@@ -29,6 +31,7 @@ jobs:
       head_repository: ${{ steps.resolve.outputs.head_repository }}
       head_ref: ${{ steps.resolve.outputs.head_ref }}
       head_sha: ${{ steps.resolve.outputs.head_sha }}
+      merge_sha: ${{ steps.resolve.outputs.merge_sha }}
     steps:
       - name: Resolve an open pull request from trusted main
         id: resolve
@@ -50,31 +53,46 @@ jobs:
           state="$(jq -r '.state // empty' <<<"$pr_json")"
           base_repository="$(jq -r '.base.repo.full_name // empty' <<<"$pr_json")"
           head_repository="$(jq -r '.head.repo.full_name // empty' <<<"$pr_json")"
+          head_repository_is_fork="$(jq -r '.head.repo.fork // false' <<<"$pr_json")"
           head_ref="$(jq -r '.head.ref // empty' <<<"$pr_json")"
           head_sha="$(jq -r '.head.sha // empty' <<<"$pr_json")"
+          merge_sha="$(jq -r '.merge_commit_sha // empty' <<<"$pr_json")"
 
-          if [[ "$state" != "open" || "$base_repository" != "$GITHUB_REPOSITORY" || -z "$head_repository" || -z "$head_ref" || ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Pull request must be open, target this repository, and have an available head repository/ref/SHA." >&2
+          if [[ "$state" != "open" || "$base_repository" != "anyshift-io/agent-plugin" || -z "$head_repository" || -z "$head_ref" || ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Pull request must be open, target anyshift-io/agent-plugin, and have an available head repository/ref/SHA." >&2
             exit 1
+          fi
+          if ! git check-ref-format --branch "$head_ref" >/dev/null 2>&1; then
+            echo "Pull request head ref is not a valid branch name." >&2
+            exit 1
+          fi
+          if [[ "$head_repository" != "anyshift-io/agent-plugin" && "$head_repository_is_fork" != "true" ]]; then
+            echo "Pull request head must be this repository or a fork." >&2
+            exit 1
+          fi
+          if [[ ! "$merge_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            merge_sha=""
           fi
 
           {
-            echo "head_repository=$head_repository"
-            echo "head_ref=$head_ref"
-            echo "head_sha=$head_sha"
+            printf 'head_repository=%s\n' "$head_repository"
+            printf 'head_ref=%s\n' "$head_ref"
+            printf 'head_sha=%s\n' "$head_sha"
+            printf 'merge_sha=%s\n' "$merge_sha"
           } >>"$GITHUB_OUTPUT"
 
   validate-fork-pr:
     needs: resolve-fork-pr
-    if: ${{ needs.resolve-fork-pr.result == 'success' }}
+    if: ${{ needs.resolve-fork-pr.result == 'success' && needs.resolve-fork-pr.outputs.merge_sha != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check out the immutable PR merge result
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: ${{ needs.resolve-fork-pr.outputs.head_repository }}
-          ref: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+          repository: anyshift-io/agent-plugin
+          ref: ${{ needs.resolve-fork-pr.outputs.merge_sha }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -94,11 +112,16 @@ jobs:
       inputs.pr_number != '' && needs.resolve-fork-pr.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
+      actions: read
+      checks: read
       statuses: write
     env:
       GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ inputs.pr_number }}
       HEAD_SHA: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+      MERGE_SHA: ${{ needs.resolve-fork-pr.outputs.merge_sha }}
       VALIDATION_RESULT: ${{ needs.validate-fork-pr.result }}
+      RUN_TITLE: "Manual PR validation #${{ inputs.pr_number }}"
       TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Publish the required validation status
@@ -108,12 +131,29 @@ jobs:
             echo "Resolved PR head SHA is invalid." >&2
             exit 1
           fi
-          if [[ "$VALIDATION_RESULT" == "success" ]]; then
+          if [[ ! "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            VALIDATION_RESULT="no-merge-result"
+          fi
+
+          runs_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/workflows/validate.yml/runs?branch=main&event=workflow_dispatch&per_page=100")"
+          newest_run="$(jq -r --arg title "$RUN_TITLE" '[.[] | .workflow_runs[]? | select(.display_title == $title and .event == "workflow_dispatch")] | if length > 0 then max_by([.run_number, .run_attempt]) | "\(.id):\(.run_attempt)" else empty end' <<<"$runs_json")"
+          if [[ "$newest_run" != "${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" ]]; then
+            echo "A newer dispatch exists for this PR; this run will not publish a status."
+            exit 0
+          fi
+
+          automatic_check_ok=false
+          if [[ "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            checks_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/commits/${MERGE_SHA}/check-runs?check_name=validate&per_page=100")"
+            automatic_check_ok="$(jq -r --argjson pr "$PR_NUMBER" '[.[] | .check_runs[]? | select(.name == "validate" and any(.check_suite.pull_requests[]?; .number == $pr))] as $checks | ($checks | length > 0) and all($checks[]; .status == "completed" and .conclusion == "success")' <<<"$checks_json")"
+          fi
+
+          if [[ "$VALIDATION_RESULT" == "success" && "$automatic_check_ok" == "true" ]]; then
             state=success
-            description="Manual PR validation passed"
+            description="Manual merge-result validation passed"
           else
             state=failure
-            description="Manual PR validation did not pass (${VALIDATION_RESULT})"
+            description="Validation or required PR check did not pass (${VALIDATION_RESULT})"
           fi
           gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
             -f state="$state" \
