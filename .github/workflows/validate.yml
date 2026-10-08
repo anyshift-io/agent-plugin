@@ -1,20 +1,128 @@
 name: Validate Agent Plugin
 
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Open pull request number to validate manually; dispatch against main"
+        required: false
+        type: string
   pull_request:
   push:
     branches: [main]
     tags: ["v*"]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'ci' || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.pr_number || 'branch' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs.pr_number == '' }}
 
 permissions:
   contents: read
 
 jobs:
+  resolve-fork-pr:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      head_repository: ${{ steps.resolve.outputs.head_repository }}
+      head_ref: ${{ steps.resolve.outputs.head_ref }}
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+    steps:
+      - name: Resolve an open pull request from trusted main
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Manual PR validation must be dispatched from trusted main." >&2
+            exit 1
+          fi
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "pr_number must be a positive integer." >&2
+            exit 1
+          fi
+
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          state="$(jq -r '.state // empty' <<<"$pr_json")"
+          base_repository="$(jq -r '.base.repo.full_name // empty' <<<"$pr_json")"
+          head_repository="$(jq -r '.head.repo.full_name // empty' <<<"$pr_json")"
+          head_ref="$(jq -r '.head.ref // empty' <<<"$pr_json")"
+          head_sha="$(jq -r '.head.sha // empty' <<<"$pr_json")"
+
+          if [[ "$state" != "open" || "$base_repository" != "$GITHUB_REPOSITORY" || -z "$head_repository" || -z "$head_ref" || ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Pull request must be open, target this repository, and have an available head repository/ref/SHA." >&2
+            exit 1
+          fi
+
+          {
+            echo "head_repository=$head_repository"
+            echo "head_ref=$head_ref"
+            echo "head_sha=$head_sha"
+          } >>"$GITHUB_OUTPUT"
+
+  validate-fork-pr:
+    needs: resolve-fork-pr
+    if: ${{ needs.resolve-fork-pr.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ needs.resolve-fork-pr.outputs.head_repository }}
+          ref: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run validate
+      - name: Verify release metadata
+        run: |
+          release_tag="v$(node -p "require('./package.json').version")"
+          npm run verify:release -- "$release_tag"
+
+  publish-fork-validation-status:
+    needs: [resolve-fork-pr, validate-fork-pr]
+    if: >-
+      ${{ always() && github.event_name == 'workflow_dispatch' &&
+      inputs.pr_number != '' && needs.resolve-fork-pr.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_SHA: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+      VALIDATION_RESULT: ${{ needs.validate-fork-pr.result }}
+      TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Publish the required validation status
+        run: |
+          set -euo pipefail
+          if [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Resolved PR head SHA is invalid." >&2
+            exit 1
+          fi
+          if [[ "$VALIDATION_RESULT" == "success" ]]; then
+            state=success
+            description="Manual PR validation passed"
+          else
+            state=failure
+            description="Manual PR validation did not pass (${VALIDATION_RESULT})"
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$state" \
+            -f context=validate \
+            -f description="$description" \
+            -f target_url="$TARGET_URL" >/dev/null
+
   validate:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.pr_number == '' }}
     # Public repo: org Self-Hosted runner group has allows_public_repositories=false,
     # so jobs must use GitHub-hosted runners or they stay queued forever.
     runs-on: ubuntu-latest
