@@ -237,11 +237,19 @@ Report vulnerabilities privately through this repository's GitHub Security Advis
 
 ## Manual pull request validation
 
-The validation workflow does not start automatically when a pull request opens or receives a commit. Slack notifications still run automatically when GitHub requests a human review; separate review integrations have their own automatic triggers. Run validation from GitHub Actions using the pull request branch, or from `gh`:
+The validation workflow does not start automatically when a pull request opens or receives a commit. Slack notifications still run automatically when GitHub requests a human review; separate review integrations have their own automatic triggers. For a branch in this repository, run validation from GitHub Actions using the pull request branch, or from `gh`:
 
 ```sh
 gh workflow run <workflow-file> --ref <pr-branch> --repo anyshift-io/agent-plugin
 ```
+
+For a fork pull request, dispatch the trusted workflow from `main` and pass the PR number:
+
+```sh
+gh workflow run validate.yml --ref main --repo anyshift-io/agent-plugin -f pr_number=<number>
+```
+
+The workflow resolves the open PR's head repository and immutable commit SHA, validates that exact fork commit on a GitHub-hosted runner with read-only contents access and no persisted checkout credential, then publishes the required `validate` status from a separate trusted job. That publisher has only `statuses: write` and does not check out or execute fork code. Validation remains manual and does not publish packages or releases.
 
 Re-run required checks after each new commit; a successful run must match the pull request’s latest commit. Supply any required workflow inputs.
 
