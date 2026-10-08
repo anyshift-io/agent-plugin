@@ -1,10 +1,12 @@
 name: Validate Agent Plugin
 
+run-name: "Manual PR validation #${{ inputs.pr_number || 'branch' }}"
+
 on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: "Optional pull request number for a fork PR; dispatch against main"
+        description: "Open pull request number to validate manually; dispatch against main"
         required: false
         type: string
   push:
@@ -12,10 +14,8 @@ on:
     tags: ["v*"]
 
 concurrency:
-  # Keep fork validations isolated per PR and serialize retries so an older run cannot
-  # overwrite a newer validation status after cancellation.
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.pr_number || 'branch' }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.pr_number || 'branch' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs.pr_number == '' }}
 
 permissions:
   contents: read
@@ -30,8 +30,9 @@ jobs:
       head_repository: ${{ steps.resolve.outputs.head_repository }}
       head_ref: ${{ steps.resolve.outputs.head_ref }}
       head_sha: ${{ steps.resolve.outputs.head_sha }}
+      merge_sha: ${{ steps.resolve.outputs.merge_sha }}
     steps:
-      - name: Resolve an open fork pull request
+      - name: Resolve an open pull request from trusted main
         id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "Fork validation must be dispatched from the trusted main workflow ref." >&2
+            echo "Manual PR validation must be dispatched from trusted main." >&2
             exit 1
           fi
           if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
@@ -51,35 +52,119 @@ jobs:
           state="$(jq -r '.state // empty' <<<"$pr_json")"
           base_repository="$(jq -r '.base.repo.full_name // empty' <<<"$pr_json")"
           head_repository="$(jq -r '.head.repo.full_name // empty' <<<"$pr_json")"
+          head_repository_is_fork="$(jq -r '.head.repo.fork // false' <<<"$pr_json")"
           head_ref="$(jq -r '.head.ref // empty' <<<"$pr_json")"
           head_sha="$(jq -r '.head.sha // empty' <<<"$pr_json")"
+          merge_sha="$(jq -r '.merge_commit_sha // empty' <<<"$pr_json")"
 
-          if [[ "$state" != "open" || "$base_repository" != "$GITHUB_REPOSITORY" || -z "$head_repository" || -z "$head_ref" || ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Pull request must be open, target this repository, and have an available head repository/ref/SHA." >&2
+          if [[ "$state" != "open" || "$base_repository" != "anyshift-io/agent-plugin" || -z "$head_repository" || -z "$head_ref" || ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Pull request must be open, target anyshift-io/agent-plugin, and have an available head repository/ref/SHA." >&2
             exit 1
           fi
-          if [[ "$head_repository" != "$GITHUB_REPOSITORY" ]]; then
-            echo "pr_number must identify a fork pull request." >&2
+          if ! git check-ref-format --branch "$head_ref" >/dev/null 2>&1; then
+            echo "Pull request head ref is not a valid branch name." >&2
             exit 1
+          fi
+          if [[ "$head_repository" != "anyshift-io/agent-plugin" && "$head_repository_is_fork" != "true" ]]; then
+            echo "Pull request head must be this repository or a fork." >&2
+            exit 1
+          fi
+          if [[ ! "$merge_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            merge_sha=""
           fi
 
           {
-            echo "head_repository=$head_repository"
-            echo "head_ref=$head_ref"
-            echo "head_sha=$head_sha"
+            printf 'head_repository=%s\n' "$head_repository"
+            printf 'head_ref=%s\n' "$head_ref"
+            printf 'head_sha=%s\n' "$head_sha"
+            printf 'merge_sha=%s\n' "$merge_sha"
           } >>"$GITHUB_OUTPUT"
 
-  validate-fork-pr:
+  start-manual-validation-check:
     needs: resolve-fork-pr
-    if: ${{ needs.resolve-fork-pr.result == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' && needs.resolve-fork-pr.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: read
+    outputs:
+      should_run: ${{ steps.start.outputs.should_run }}
+      check_run_id: ${{ steps.start.outputs.check_run_id }}
+    steps:
+      - name: Start the trusted required check
+        id: start
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_SHA: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+          RUN_TITLE: "Manual PR validation #${{ inputs.pr_number }}"
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Resolved PR head SHA is invalid." >&2
+            exit 1
+          fi
+
+          runs_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/workflows/validate.yml/runs?branch=main&event=workflow_dispatch&per_page=100")"
+          newest_run="$(jq -r --arg title "$RUN_TITLE" '[.[] | .workflow_runs[]? | select(.display_title == $title and .event == "workflow_dispatch")] | if length > 0 then max_by([.run_number, .run_attempt]) | "\(.id):\(.run_attempt)" else empty end' <<<"$runs_json")"
+          if [[ "$newest_run" != "${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" ]]; then
+            echo "A newer dispatch exists for this PR; this run will not publish a check."
+            printf 'should_run=false\n' >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          pr_state="$(jq -r '.state // empty' <<<"$pr_json")"
+          pr_base="$(jq -r '.base.repo.full_name // empty' <<<"$pr_json")"
+          current_head="$(jq -r '.head.sha // empty' <<<"$pr_json")"
+          if [[ "$pr_state" != "open" || "$pr_base" != "anyshift-io/agent-plugin" || "$current_head" != "$HEAD_SHA" ]]; then
+            echo "The PR is closed, targets another repository, or its head has changed; refusing to start a check."
+            printf 'should_run=false\n' >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          external_id="manual-pr-validation:${PR_NUMBER}"
+          checks_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?check_name=validate&per_page=100")"
+          existing_id="$(jq -r --arg external_id "$external_id" --arg sha "$HEAD_SHA" '[.[] | .check_runs[]? | select(.name == "validate" and .external_id == $external_id and .head_sha == $sha)] | sort_by(.started_at // .created_at) | last | .id // empty' <<<"$checks_json")"
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          output="$(jq -n --arg summary "Trusted manual validation is running against the immutable PR merge result. This check is attached to the captured PR head." '{title:"Manual validation in progress",summary:$summary}')"
+          if [[ -n "$existing_id" ]]; then
+            if [[ ! "$existing_id" =~ ^[0-9]+$ ]]; then
+              echo "Existing validation check ID is invalid." >&2
+              exit 1
+            fi
+            payload="$(jq -n --arg started_at "$started_at" --arg details_url "$TARGET_URL" --argjson output "$output" '{status:"in_progress",started_at:$started_at,details_url:$details_url,output:$output}')"
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/check-runs/${existing_id}" --input - <<<"$payload" >/dev/null
+            check_run_id="$existing_id"
+          else
+            payload="$(jq -n --arg name "validate" --arg head_sha "$HEAD_SHA" --arg external_id "$external_id" --arg started_at "$started_at" --arg details_url "$TARGET_URL" --argjson output "$output" '{name:$name,head_sha:$head_sha,external_id:$external_id,status:"in_progress",started_at:$started_at,details_url:$details_url,output:$output}')"
+            check_run="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/check-runs" --input - <<<"$payload")"
+            check_run_id="$(jq -r '.id // empty' <<<"$check_run")"
+          fi
+          if [[ ! "$check_run_id" =~ ^[0-9]+$ ]]; then
+            echo "GitHub did not return a valid validation check ID." >&2
+            exit 1
+          fi
+          printf 'check_run_id=%s\n' "$check_run_id" >>"$GITHUB_OUTPUT"
+          printf 'should_run=true\n' >>"$GITHUB_OUTPUT"
+
+  validate-fork-pr:
+    needs: [resolve-fork-pr, start-manual-validation-check]
+    if: >-
+      ${{ needs.resolve-fork-pr.result == 'success' &&
+      needs.start-manual-validation-check.outputs.should_run == 'true' &&
+      needs.resolve-fork-pr.outputs.merge_sha != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check out the immutable PR merge result
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: ${{ needs.resolve-fork-pr.outputs.head_repository }}
-          ref: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+          repository: anyshift-io/agent-plugin
+          ref: ${{ needs.resolve-fork-pr.outputs.merge_sha }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -92,39 +177,77 @@ jobs:
           release_tag="v$(node -p "require('./package.json').version")"
           npm run verify:release -- "$release_tag"
 
-  publish-fork-validation-status:
-    needs: [resolve-fork-pr, validate-fork-pr]
+  finalize-manual-validation-check:
+    needs: [resolve-fork-pr, start-manual-validation-check, validate-fork-pr]
     if: >-
       ${{ always() && github.event_name == 'workflow_dispatch' &&
-      inputs.pr_number != '' && needs.resolve-fork-pr.result == 'success' }}
+      inputs.pr_number != '' && needs.resolve-fork-pr.result == 'success' &&
+      needs.start-manual-validation-check.outputs.should_run == 'true' &&
+      needs.start-manual-validation-check.outputs.check_run_id != '' }}
     runs-on: ubuntu-latest
     permissions:
-      statuses: write
+      actions: read
+      checks: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ inputs.pr_number }}
       HEAD_SHA: ${{ needs.resolve-fork-pr.outputs.head_sha }}
+      MERGE_SHA: ${{ needs.resolve-fork-pr.outputs.merge_sha }}
+      CHECK_RUN_ID: ${{ needs.start-manual-validation-check.outputs.check_run_id }}
       VALIDATION_RESULT: ${{ needs.validate-fork-pr.result }}
+      RUN_TITLE: "Manual PR validation #${{ inputs.pr_number }}"
       TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - name: Publish the required validation status
+      - name: Complete the trusted required check
         run: |
           set -euo pipefail
-          if [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Resolved PR head SHA is invalid." >&2
+          if [[ ! "$HEAD_SHA" =~ ^[0-9a-f]{40}$ || ! "$CHECK_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "Captured head SHA or check ID is invalid." >&2
             exit 1
           fi
-          if [[ "$VALIDATION_RESULT" == "success" ]]; then
-            state=success
-            description="Manual fork PR validation passed"
-          else
-            state=failure
-            description="Manual fork PR validation did not pass (${VALIDATION_RESULT})"
+
+          runs_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/actions/workflows/validate.yml/runs?branch=main&event=workflow_dispatch&per_page=100")"
+          newest_run="$(jq -r --arg title "$RUN_TITLE" '[.[] | .workflow_runs[]? | select(.display_title == $title and .event == "workflow_dispatch")] | if length > 0 then max_by([.run_number, .run_attempt]) | "\(.id):\(.run_attempt)" else empty end' <<<"$runs_json")"
+          if [[ "$newest_run" != "${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" ]]; then
+            echo "A newer dispatch exists for this PR; this run cannot complete the required check."
+            exit 0
           fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
-            -f state="$state" \
-            -f context=validate \
-            -f description="$description" \
-            -f target_url="$TARGET_URL" >/dev/null
+
+          check_run="$(gh api "repos/${GITHUB_REPOSITORY}/check-runs/${CHECK_RUN_ID}")"
+          check_name="$(jq -r '.name // empty' <<<"$check_run")"
+          check_sha="$(jq -r '.head_sha // empty' <<<"$check_run")"
+          check_external_id="$(jq -r '.external_id // empty' <<<"$check_run")"
+          if [[ "$check_name" != "validate" || "$check_sha" != "$HEAD_SHA" || "$check_external_id" != "manual-pr-validation:${PR_NUMBER}" ]]; then
+            echo "The check ID does not match the captured PR head and validation identity." >&2
+            exit 1
+          fi
+
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          pr_state="$(jq -r '.state // empty' <<<"$pr_json")"
+          pr_base="$(jq -r '.base.repo.full_name // empty' <<<"$pr_json")"
+          current_head="$(jq -r '.head.sha // empty' <<<"$pr_json")"
+          if [[ "$pr_state" != "open" || "$pr_base" != "anyshift-io/agent-plugin" || "$current_head" != "$HEAD_SHA" ]]; then
+            conclusion=cancelled
+            summary="The PR closed or its head changed during validation; this result does not apply to the current PR head."
+          elif [[ ! "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            conclusion=failure
+            summary="No immutable PR merge result was available to validate."
+          elif [[ "$VALIDATION_RESULT" == "success" ]]; then
+            conclusion=success
+            summary="Tests passed against the immutable PR merge result."
+          elif [[ "$VALIDATION_RESULT" == "cancelled" ]]; then
+            conclusion=cancelled
+            summary="Validation was cancelled before it completed."
+          else
+            conclusion=failure
+            summary="Validation did not complete successfully (${VALIDATION_RESULT})."
+          fi
+
+          completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          output="$(jq -n --arg summary "$summary" '{title:"Manual validation complete",summary:$summary}')"
+          payload="$(jq -n --arg conclusion "$conclusion" --arg completed_at "$completed_at" --arg details_url "$TARGET_URL" --argjson output "$output" '{status:"completed",conclusion:$conclusion,completed_at:$completed_at,details_url:$details_url,output:$output}')"
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/check-runs/${CHECK_RUN_ID}" --input - <<<"$payload" >/dev/null
 
   validate:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.pr_number == '' }}
@@ -134,7 +257,6 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
