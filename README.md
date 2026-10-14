@@ -16,6 +16,9 @@ The portable package validates against Agent Plugins 1.0.0. Since v0.3.0 the pro
 serves the Anyshift event-graph tool surface — discovery of all ten tools (`describe_schema`,
 `find_resources`, `get_resource_details`, `get_resource_events`, `get_recent_events`,
 `get_correlated_events`, `get_related`, `query_graph`, `list_projects`, `set_project`).
+v0.3.7 was verified against production on Claude Code on 2026-10-14 with backend v0.96.41
+and injector v0.0.104 (cloud diff `ts` at the API call time and `ingestedAt` sweeps, run
+through the plugin's `query_graph` on an Azure and an AWS tenant).
 v0.3.6 was verified against production on Claude Code on 2026-09-18 with backend v0.95.10
 (the traffic three-part template, PagerDuty open-is-a-status rule, requests-vs-limits terms
 and event scope citation, from a 40-attempt comparison rerun). v0.3.5 was verified against
@@ -69,7 +72,7 @@ client; the package contains no credentials or project identifiers.
 Codex 0.147.0 or newer is recommended. Install the latest verified release:
 
 ```bash
-codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.6
+codex plugin marketplace add anyshift-io/agent-plugin --ref v0.3.7
 codex plugin add agent-plugin@anyshift
 codex mcp add Anyshift --url https://api.anyshift.io/mcp/graph
 codex mcp login Anyshift
