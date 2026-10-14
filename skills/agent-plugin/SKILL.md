@@ -45,6 +45,12 @@ hotspots).
 - **Event timestamps are datetimes.** Always `e.ts > datetime('2026-08-09T00:00:00Z')`.
   A quoted-string comparison (`e.ts > '2026-…'`) matches ZERO rows without erroring —
   under `AND` it silently empties the result; under `OR` it silently drops the time bound.
+- **`e.ts` is when a change happened; `e.ingestedAt` is when it reached the graph.** Cloud
+  audit events and their diffs arrive minutes after their `ts`. Bound `ts` for "what changed
+  before X"; to sweep what is new since your last look, bound `e.ingestedAt` — a `ts` window
+  started at the last look misses a change that happened before it and arrived after. On
+  `snapshot` and `reconciliation` events, `ts` is when a scan noticed the change, not when
+  it happened.
 - **Current state requires `:ALIVE`.** Match it on every resource node you traverse or
   return (`(n:K8S_RESOURCE:ALIVE)`) — index-backed and faster than `deletedAt IS NULL`.
   Deleted nodes keep their relationships (history is preserved), so omitting `:ALIVE`

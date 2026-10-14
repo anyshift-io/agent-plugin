@@ -36,7 +36,9 @@ ORDER BY n DESC LIMIT 50
 ```
 
 Caveat: counts are evidence of activity, not impact. A high count can be routine churn —
-compare against an adjacent quiet window before calling it anomalous.
+compare against an adjacent quiet window before calling it anomalous. A window ending in the
+last ~30 minutes undercounts cloud changes: audit events and their diffs carry the provider
+call time and reach the graph minutes later.
 
 ## SPOF fan-in ranking
 
@@ -131,7 +133,8 @@ Prefer `get_correlated_events` with a `correlation_id` picked off an event. Cyph
 
 ```cypher
 MATCH (e:EVENT {correlationId: $cid})
-RETURN e.type, e.ts, e.isRoot, e.summary ORDER BY e.ts LIMIT 200
+RETURN e.type, e.ts, e.isRoot, e.summary
+ORDER BY e.ts, CASE e.evidenceSource WHEN 'audit' THEN 0 ELSE 1 END LIMIT 200
 ```
 
 ## Public exposure trace (edge → workload)
