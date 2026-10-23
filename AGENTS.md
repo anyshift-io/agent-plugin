@@ -14,3 +14,7 @@ Always dispatch the trusted workflow from `main` with the PR number. This applie
   ```
 
 The workflow resolves the open PR's immutable head SHA and merge result. It validates the merge result on a GitHub-hosted runner with read-only contents access and no persisted checkout credential. A separate trusted job then creates and completes the `validate` check run on the PR head. That job has only `checks: write`, `actions: read`, and `pull-requests: read`, and does not check out or execute PR code. Only the newest dispatch for a PR can complete the check. The workflow does not publish packages or releases.
+
+## Merge queue
+
+`main` merges through a GitHub merge queue. Add PRs to the queue instead of merging directly. When a PR is behind `main`, do not re-sync with `main` and re-dispatch CI in a loop; the queue rebuilds and re-checks the merge commit. Keep the `merge_group` trigger on every required-check workflow (`validate.yml`) so the queue can report their checks.
