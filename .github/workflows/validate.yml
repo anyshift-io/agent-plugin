@@ -12,6 +12,9 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  # Merge queue entries run the required checks on the queued merge result.
+  merge_group:
+    types: [checks_requested]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.pr_number || 'branch' }}
